@@ -147,19 +147,24 @@ python start_server.py
 2. **Excel Files**: Financial models, data tables, metrics dashboards
 3. **Word Files**: Executive summaries, market analyses, reports
 
-## Next Steps
+## Development Roadmap
 
-### Phase 2 Enhancements
-- Enhanced financial statement recognition
-- Multi-document cross-referencing
-- Custom branding templates
-- Batch processing capabilities
+See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for detailed sprint planning and milestones.
 
-### Phase 3 Features
-- User authentication and workspace management
-- Cloud storage integration
-- Real-time collaboration
-- Export to multiple formats
+### MVP Sprint 1 (High Priority - Demo Critical)
+- [Brand Template System](https://github.com/cklose2000/document-slides-poc/issues/2) - PowerPoint template matching
+- [Enhanced Source Attribution](https://github.com/cklose2000/document-slides-poc/issues/3) - Document traceability  
+- [Professional Slide Generation](https://github.com/cklose2000/document-slides-poc/issues/4) - Business-ready formatting
+
+### MVP Sprint 2 (Enterprise Features)
+- [Security & Data Handling](https://github.com/cklose2000/document-slides-poc/issues/5) - Enterprise protection
+- [Cost Optimization](https://github.com/cklose2000/document-slides-poc/issues/6) - Smart model usage
+- [Advanced Document Processing](https://github.com/cklose2000/document-slides-poc/issues/7) - Financial precision
+
+### MVP Sprint 3 (Production Polish)
+- [Professional Dashboard](https://github.com/cklose2000/document-slides-poc/issues/8) - Business UI
+- [Batch Processing](https://github.com/cklose2000/document-slides-poc/issues/9) - Multi-document workflow
+- [Production Architecture](https://github.com/cklose2000/document-slides-poc/issues/10) - Scalable deployment
 
 ## Troubleshooting
 
@@ -182,14 +187,16 @@ python start_server.py
 
 ## Contributing
 
-This is a proof of concept demonstrating core functionality. For production deployment, consider:
-- Enhanced error handling
-- Request validation
-- Rate limiting
-- Authentication and authorization
-- Scalability improvements
-- Security hardening
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, coding standards, and contribution workflow.
+
+### Quick Start for Contributors
+1. Check [GitHub Issues](https://github.com/cklose2000/document-slides-poc/issues) for available tasks
+2. Focus on `demo-critical` and `high-priority` labels first
+3. Follow the development workflow in CONTRIBUTING.md
+4. Submit PRs with tests and documentation
 
 ---
 
-**Status**: Phase 1 Complete ✅ - Ready for Phase 2 Development
+**Status**: Foundation Complete ✅ - Ready for MVP Development
+
+**Next Milestone**: Demo-Ready MVP (2 weeks) - Issues #2, #3, #4
