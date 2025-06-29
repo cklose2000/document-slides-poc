@@ -75,16 +75,17 @@ class SlideGenerator:
         slide_layout = self.prs.slide_layouts[6] if len(self.prs.slide_layouts) > 6 else self.prs.slide_layouts[-1]
         slide = self.prs.slides.add_slide(slide_layout)
         
-        # Add title
-        title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.5), Inches(8), Inches(1))
+        # Add title with emoji and better styling
+        title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
-        title_frame.text = "Financial Summary"
+        title_frame.text = "📊 Financial Performance Summary"
         
         # Style the title
         title_paragraph = title_frame.paragraphs[0]
-        title_paragraph.font.size = Pt(32)
+        title_paragraph.font.size = Pt(36)
         title_paragraph.font.bold = True
         title_paragraph.alignment = PP_ALIGN.CENTER
+        title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
         
         # Add metrics table
         if data and isinstance(data, dict):
@@ -110,11 +111,11 @@ class SlideGenerator:
         
         # Set column widths
         table.columns[0].width = Inches(3)  # Metric name
-        table.columns[1].width = Inches(2)  # Value
-        table.columns[2].width = Inches(3)  # Source
+        table.columns[1].width = Inches(2.5)  # Value
+        table.columns[2].width = Inches(2.5)  # Source
         
         # Add headers
-        headers = ['Metric', 'Value', 'Source']
+        headers = ['Key Metrics', 'Value', 'Source Document']
         for i, header in enumerate(headers):
             cell = table.cell(0, i)
             cell.text = header
@@ -126,12 +127,21 @@ class SlideGenerator:
             if row_idx >= rows:
                 break
             
-            # Metric name
-            table.cell(row_idx, 0).text = str(metric_name)
+            # Metric name (clean it up)
+            clean_name = str(metric_name).replace('_', ' ').title()
+            if clean_name.lower() == 'revenue':
+                clean_name = '📈 Revenue'
+            elif clean_name.lower() == 'profit':
+                clean_name = '💰 Profit'
             
-            # Value
+            table.cell(row_idx, 0).text = clean_name
+            
+            # Value (format properly)
             value = metric_info.get('value', 'N/A')
-            if isinstance(value, (int, float)):
+            if isinstance(value, str) and any(c in value.lower() for c in ['m', 'k', '$']):
+                # Already formatted
+                formatted_value = f"${value}" if not value.startswith('$') else value
+            elif isinstance(value, (int, float)):
                 if abs(value) > 1000000:
                     formatted_value = f"${value/1000000:.1f}M"
                 elif abs(value) > 1000:
@@ -143,10 +153,29 @@ class SlideGenerator:
             
             table.cell(row_idx, 1).text = formatted_value
             
-            # Source
-            cell_ref = metric_info.get('cell', 'Unknown')
-            source_text = f"Cell {cell_ref}"
+            # Source (get proper document name)
+            source_info = metric_info.get('source', {})
+            if isinstance(source_info, dict):
+                doc_name = source_info.get('document', 'Unknown')
+                if doc_name != 'Unknown':
+                    # Clean up filename
+                    source_text = doc_name.replace('.pdf', '').replace('.xlsx', '').replace('_', ' ').title()
+                else:
+                    source_text = 'Financial Report'
+            else:
+                source_text = 'Financial Report'
+            
             table.cell(row_idx, 2).text = source_text
+            
+            # Style data cells
+            for col in range(3):
+                cell = table.cell(row_idx, col)
+                for paragraph in cell.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(14)
+                        if col == 1:  # Value column - make it bold
+                            run.font.bold = True
+                            run.font.color.rgb = RGBColor(0, 102, 51)  # Dark green
             
             row_idx += 1
     
@@ -172,16 +201,17 @@ class SlideGenerator:
         slide_layout = self.prs.slide_layouts[6] if len(self.prs.slide_layouts) > 6 else self.prs.slide_layouts[-1]
         slide = self.prs.slides.add_slide(slide_layout)
         
-        # Add title
-        title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.5), Inches(8), Inches(1))
+        # Add title with emoji and better styling
+        title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
-        title_frame.text = "Company Overview"
+        title_frame.text = "🏢 Company Overview"
         
         # Style the title
         title_paragraph = title_frame.paragraphs[0]
-        title_paragraph.font.size = Pt(32)
+        title_paragraph.font.size = Pt(36)
         title_paragraph.font.bold = True
         title_paragraph.alignment = PP_ALIGN.CENTER
+        title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
         
         # Add company info
         if company_data:
@@ -263,16 +293,17 @@ class SlideGenerator:
         slide_layout = self.prs.slide_layouts[6] if len(self.prs.slide_layouts) > 6 else self.prs.slide_layouts[-1]
         slide = self.prs.slides.add_slide(slide_layout)
         
-        # Add title
-        title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.5), Inches(8), Inches(1))
+        # Add title with emoji and better styling
+        title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
-        title_frame.text = "Key Insights"
+        title_frame.text = "💡 Key Business Insights"
         
         # Style the title
         title_paragraph = title_frame.paragraphs[0]
-        title_paragraph.font.size = Pt(32)
+        title_paragraph.font.size = Pt(36)
         title_paragraph.font.bold = True
         title_paragraph.alignment = PP_ALIGN.CENTER
+        title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
         
         # Add insights as bullet points
         if insights_data:
@@ -284,31 +315,54 @@ class SlideGenerator:
         return slide
     
     def _add_insights_bullets(self, slide, insights, left, top):
-        """Add insights as bullet points"""
+        """Add insights as bullet points with better styling"""
         bullets_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(4))
         bullets_frame = bullets_shape.text_frame
+        bullets_frame.margin_left = Inches(0.2)
+        bullets_frame.margin_top = Inches(0.1)
+        
+        # Define bullet emojis for visual appeal
+        bullet_icons = ['🚀', '📊', '💎', '⭐', '🎯']
         
         if isinstance(insights, list):
             for i, insight in enumerate(insights):
+                bullet_icon = bullet_icons[i % len(bullet_icons)]
                 if i == 0:
-                    bullets_frame.text = f"• {insight}"
+                    bullets_frame.text = f"{bullet_icon} {insight}"
+                    # Style first paragraph
+                    p = bullets_frame.paragraphs[0]
+                    p.font.size = Pt(18)
+                    p.font.bold = True
+                    p.space_after = Pt(12)
+                    p.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
                 else:
                     p = bullets_frame.add_paragraph()
-                    p.text = f"• {insight}"
-                    p.font.size = Pt(16)
-                    p.space_before = Pt(6)
+                    p.text = f"{bullet_icon} {insight}"
+                    p.font.size = Pt(18)
+                    p.font.bold = True
+                    p.space_before = Pt(8)
+                    p.space_after = Pt(8)
+                    p.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
         elif isinstance(insights, dict):
             first = True
+            i = 0
             for key, value in insights.items():
-                text = f"• {key}: {value}"
+                bullet_icon = bullet_icons[i % len(bullet_icons)]
+                text = f"{bullet_icon} {key}: {value}"
                 if first:
                     bullets_frame.text = text
+                    p = bullets_frame.paragraphs[0]
                     first = False
                 else:
                     p = bullets_frame.add_paragraph()
                     p.text = text
-                    p.font.size = Pt(16)
-                    p.space_before = Pt(6)
+                
+                p.font.size = Pt(18)
+                p.font.bold = True
+                p.space_before = Pt(8)
+                p.space_after = Pt(8)
+                p.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
+                i += 1
     
     def save_presentation(self, output_path):
         """Save the presentation to specified path"""
