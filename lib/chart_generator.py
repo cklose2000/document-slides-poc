@@ -44,8 +44,8 @@ class ChartGenerator:
                 'text': '#333333'  # Softer than pure black
             },
             'fonts': {
-                'title_font': 'Arial',
-                'body_font': 'Arial',
+                'title_font': 'DejaVu Sans',
+                'body_font': 'DejaVu Sans', 
                 'title_size': 16,
                 'body_size': 12
             }

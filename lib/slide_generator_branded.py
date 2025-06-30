@@ -601,7 +601,9 @@ class BrandedSlideGenerator:
             try:
                 self._add_confidence_chart(slide, stats, Inches(5.5), Inches(1.8))
             except Exception as e:
+                import traceback
                 print(f"Error adding confidence chart: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
             
             # Bottom: Processing methodology
             try:
@@ -1286,8 +1288,8 @@ class BrandedSlideGenerator:
             # Extract size from nested structure
             body_config = fonts['body']
             adapted['fonts'] = {
-                'title_font': fonts.get('heading', {}).get('family', 'Arial'),
-                'body_font': body_config.get('family', 'Arial'),
+                'title_font': 'DejaVu Sans',  # Linux-compatible font
+                'body_font': 'DejaVu Sans',   # Linux-compatible font
                 'title_size': fonts.get('heading', {}).get('size_large', 16),
                 'body_size': body_config.get('size_medium', 12)
             }
