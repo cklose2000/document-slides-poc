@@ -1,0 +1,28 @@
+{
+  "id": "corporate",
+  "name": "Corporate Professional",
+  "description": "Executive-ready template with corporate branding elements",
+  "preview": "preview.png",
+  "colors": {
+    "primary": "#003366",
+    "secondary": "#666666",
+    "accent1": "#0066CC",
+    "accent2": "#FF6600",
+    "background": "#FFFFFF",
+    "text": "#333333"
+  },
+  "fonts": {
+    "title_font": "Arial",
+    "body_font": "Arial",
+    "title_size": 48,
+    "subtitle_size": 36,
+    "body_size": 16
+  },
+  "features": [
+    "Professional corporate design",
+    "Executive color scheme",
+    "Brand-ready layouts",
+    "Financial chart templates",
+    "Source attribution styling"
+  ]
+}

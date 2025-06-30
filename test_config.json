@@ -1,0 +1,119 @@
+{
+  "test_suites": [
+    {
+      "name": "existing_tests",
+      "path": "./",
+      "pattern": "test_*.py",
+      "timeout": 300,
+      "enabled": true,
+      "description": "Existing test files in root directory"
+    },
+    {
+      "name": "performance_tests",
+      "path": "tests/performance/",
+      "pattern": "test_performance_*.py",
+      "timeout": 600,
+      "enabled": true,
+      "description": "Performance benchmarks and throughput tests"
+    },
+    {
+      "name": "error_handling_tests",
+      "path": "tests/error_handling/",
+      "pattern": "test_error_*.py",
+      "timeout": 300,
+      "enabled": true,
+      "description": "Error handling and graceful degradation tests"
+    },
+    {
+      "name": "stress_tests",
+      "path": "tests/stress/",
+      "pattern": "test_large_*.py",
+      "timeout": 900,
+      "enabled": true,
+      "description": "Large file handling and memory stress tests"
+    },
+    {
+      "name": "api_tests",
+      "path": "tests/api/",
+      "pattern": "test_api_*.py",
+      "timeout": 300,
+      "enabled": false,
+      "description": "API endpoint integration tests"
+    }
+  ],
+  "coverage": {
+    "enabled": true,
+    "source_dirs": ["lib/", "api/"],
+    "exclude_patterns": [
+      "*/test*",
+      "*/tests/*",
+      "*/__pycache__/*",
+      "*/venv/*",
+      "*/site-packages/*",
+      "*/.git/*"
+    ],
+    "min_line_coverage": 70.0,
+    "min_branch_coverage": 60.0,
+    "min_function_coverage": 80.0
+  },
+  "quality_gates": [
+    {
+      "name": "minimum_test_pass_rate",
+      "threshold": 90.0,
+      "critical": true,
+      "description": "At least 90% of tests must pass"
+    },
+    {
+      "name": "minimum_line_coverage",
+      "threshold": 70.0,
+      "critical": true,
+      "description": "At least 70% line coverage required"
+    },
+    {
+      "name": "maximum_test_execution_time",
+      "threshold": 1800.0,
+      "critical": false,
+      "description": "Total test execution should not exceed 30 minutes"
+    },
+    {
+      "name": "maximum_memory_usage_mb",
+      "threshold": 2000.0,
+      "critical": false,
+      "description": "Peak memory usage should not exceed 2GB"
+    },
+    {
+      "name": "maximum_failed_tests",
+      "threshold": 5,
+      "critical": true,
+      "description": "No more than 5 tests should fail"
+    }
+  ],
+  "performance_thresholds": {
+    "max_document_processing_time_sec": 30.0,
+    "max_slide_generation_time_sec": 60.0,
+    "max_memory_usage_per_operation_mb": 500.0,
+    "min_throughput_mb_per_sec": 1.0
+  },
+  "reporting": {
+    "generate_html": true,
+    "generate_json": true,
+    "generate_junit": true,
+    "generate_csv": true,
+    "include_performance_charts": true,
+    "include_memory_profiles": true,
+    "include_error_details": true,
+    "retention_days": 30
+  },
+  "notifications": {
+    "enabled": false,
+    "email_on_failure": false,
+    "webhook_url": null,
+    "slack_channel": null
+  },
+  "environment": {
+    "python_version_min": "3.8",
+    "required_memory_gb": 2,
+    "required_disk_space_gb": 1,
+    "timeout_scale_factor": 1.0
+  }
+}

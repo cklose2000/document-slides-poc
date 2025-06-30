@@ -1,0 +1,73 @@
+BRANDED SLIDE GENERATOR TEST REPORT
+==================================================
+Generated: 2025-06-28 17:09:49
+
+
+SETUP TESTS:
+------------------------------
+✅ Basic initialization: Success
+✅ BrandManager initialization: Success
+✅ Template listing: Found 3 templates: ['sample_brand', 'sample_brand_template', 'simple_template']
+
+TEMPLATE INTEGRATION:
+------------------------------
+✅ Template parsing: sample_brand: Success
+✅ Template parsing: sample_brand_template: Success
+✅ Template parsing: simple_template: Success
+
+SLIDE CREATION:
+------------------------------
+✅ Generator init with sample_brand: Success
+✅ Title slide creation (sample_brand): Success
+✅ Financial slide creation (sample_brand): Success
+✅ Company slide creation (sample_brand): Success
+✅ Insights slide creation (sample_brand): Success
+✅ Presentation saving (sample_brand): File created: 35945 bytes
+✅ Generator init with sample_brand_template: Success
+✅ Title slide creation (sample_brand_template): Success
+✅ Financial slide creation (sample_brand_template): Success
+✅ Company slide creation (sample_brand_template): Success
+✅ Insights slide creation (sample_brand_template): Success
+✅ Presentation saving (sample_brand_template): File created: 35945 bytes
+✅ Generator init with simple_template: Success
+✅ Title slide creation (simple_template): Success
+✅ Financial slide creation (simple_template): Success
+✅ Company slide creation (simple_template): Success
+✅ Insights slide creation (simple_template): Success
+✅ Presentation saving (simple_template): File created: 32165 bytes
+✅ Default template generation: File created: 33551 bytes
+
+BRAND STYLING:
+------------------------------
+✅ Brand color retrieval: Primary: #4F81BD, Secondary: #F79646
+❌ Color conversion: 'RGBColor' object has no attribute 'r'
+✅ Value formatting 500: $500
+✅ Value formatting 1500: $2K
+✅ Value formatting 25000: $25K
+✅ Value formatting 1000000: $1000K
+✅ Value formatting 15000000: $15.0M
+✅ Value formatting 0.15: $0
+✅ Value formatting N/A: N/A
+
+SOURCE ATTRIBUTION:
+------------------------------
+✅ Source attribution test 1: Type: dict
+✅ Source attribution test 2: Type: dict
+✅ Source attribution test 3: Type: list
+✅ Source attribution test 4: Type: str
+✅ Attribution presentation save: test_attribution_20250628_170948.pptx
+
+EDGE CASES:
+------------------------------
+✅ Empty financial data: Handled gracefully
+✅ None data handling: Handled gracefully
+❌ Invalid template handling: Template 'nonexistent_template' not found
+✅ Long title text: Handled gracefully
+
+SUMMARY STATISTICS:
+- Total Tests: 43
+- Passed: 41 (95.3%)
+- Failed: 2
+- Warnings: 0
+
+OVERALL STATUS: ❌ FAIL

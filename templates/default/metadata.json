@@ -1,0 +1,27 @@
+{
+  "id": "default",
+  "name": "Default Template",
+  "description": "Clean and simple template for standard presentations",
+  "preview": "preview.png",
+  "colors": {
+    "primary": "#4F81BD",
+    "secondary": "#808080",
+    "accent1": "#4BACC6",
+    "accent2": "#F79646",
+    "background": "#FFFFFF",
+    "text": "#000000"
+  },
+  "fonts": {
+    "title_font": "Calibri",
+    "body_font": "Calibri",
+    "title_size": 44,
+    "subtitle_size": 32,
+    "body_size": 18
+  },
+  "features": [
+    "Clean minimal design",
+    "Standard color palette",
+    "Professional typography",
+    "Versatile layouts"
+  ]
+}

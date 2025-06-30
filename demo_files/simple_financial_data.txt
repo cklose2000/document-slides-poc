@@ -1,0 +1,54 @@
+SaaSy Inc. - Q3 2024 Financial Summary
+
+Company Overview:
+- Name: SaaSy Inc.
+- Industry: Customer Success Management Software
+- Stage: Series B Growth Company
+- Founded: 2019
+- Headquarters: San Francisco, CA
+
+Key Financial Metrics:
+- Annual Recurring Revenue: $15.2M
+- Year-over-Year Growth: 23%
+- Gross Profit: $12.5M
+- Gross Margin: 82%
+- EBITDA: $2.7M
+- EBITDA Margin: 18%
+- Q3 Revenue: $4.1M
+- Q3 Growth Rate: 23%
+
+Customer Metrics:
+- Total Customers: 450
+- New Customers (Q3): 85
+- Customer Acquisition Cost: $850
+- Customer Lifetime Value: $12,500
+- LTV/CAC Ratio: 14.7
+- Monthly Churn Rate: 2.1%
+- Net Revenue Retention: 123%
+- Gross Revenue Retention: 98%
+
+Operational Metrics:
+- Employees: 85
+- Revenue per Employee: $179,000
+- Average Deal Size: $33,777
+- Time to Payback CAC: 0.3 months
+- Burn Rate: $200K/month
+- Cash Runway: 24+ months
+
+Market Position:
+- Total Addressable Market: $12.8B
+- Serviceable Addressable Market: $3.2B
+- Current Market Share: 0.5%
+- Target Market: Mid-market and Enterprise B2B SaaS
+
+Strategic Initiatives:
+- Product Innovation: AI-powered churn prediction
+- Market Expansion: European market entry
+- Team Growth: Engineering and sales hiring
+- Partnership Development: Integration partnerships
+
+Forward Looking (Q4 2024):
+- Revenue Target: $5.8M
+- New Customer Target: 30
+- EBITDA Margin Target: 19%
+- Employee Growth: 95 people

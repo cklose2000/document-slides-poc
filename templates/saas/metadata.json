@@ -1,0 +1,67 @@
+{
+  "id": "saas",
+  "name": "SaaS Technology",
+  "description": "Modern tech-focused template for SaaS companies with emphasis on metrics and growth",
+  "preview": "preview.png",
+  "colors": {
+    "primary": "#4F46E5",
+    "secondary": "#06B6D4",
+    "accent1": "#10B981",
+    "accent2": "#F59E0B",
+    "background": "#FFFFFF",
+    "text": "#1F2937",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "error": "#EF4444"
+  },
+  "fonts": {
+    "title_font": "Segoe UI",
+    "body_font": "Segoe UI",
+    "title_size": 44,
+    "subtitle_size": 32,
+    "body_size": 16,
+    "metric_size": 24
+  },
+  "features": [
+    "Modern SaaS-focused design",
+    "Tech startup color palette",
+    "Metrics-heavy layouts",
+    "Growth-oriented visualizations",
+    "ARR/MRR specialized charts",
+    "User engagement metrics",
+    "Scalability indicators"
+  ],
+  "industry_focus": {
+    "metrics": [
+      "Monthly Recurring Revenue (MRR)",
+      "Annual Recurring Revenue (ARR)",
+      "Customer Acquisition Cost (CAC)",
+      "Lifetime Value (LTV)",
+      "Churn Rate",
+      "Net Promoter Score (NPS)",
+      "Daily/Monthly Active Users",
+      "Conversion Rates"
+    ],
+    "chart_types": [
+      "Growth curves",
+      "Cohort analysis",
+      "Funnel charts",
+      "Revenue waterfalls",
+      "User retention curves"
+    ]
+  },
+  "style_guide": {
+    "slide_layouts": [
+      "Metric dashboard",
+      "Growth trajectory",
+      "Product roadmap",
+      "Customer success",
+      "Financial performance"
+    ],
+    "branding": {
+      "logo_placement": "top_right",
+      "footer_style": "minimal_tech",
+      "border_style": "clean_lines"
+    }
+  }
+}

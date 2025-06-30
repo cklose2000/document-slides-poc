@@ -1,0 +1,72 @@
+{
+  "id": "manufacturing",
+  "name": "Manufacturing Operations",
+  "description": "Industrial-focused template emphasizing operational efficiency and production metrics",
+  "preview": "preview.png",
+  "colors": {
+    "primary": "#1E3A8A",
+    "secondary": "#B45309",
+    "accent1": "#059669",
+    "accent2": "#DC2626",
+    "background": "#F9FAFB",
+    "text": "#111827",
+    "efficiency": "#059669",
+    "warning": "#F59E0B",
+    "critical": "#DC2626"
+  },
+  "fonts": {
+    "title_font": "Calibri",
+    "body_font": "Calibri",
+    "title_size": 40,
+    "subtitle_size": 28,
+    "body_size": 14,
+    "metric_size": 20
+  },
+  "features": [
+    "Industrial operational design",
+    "Production-focused color scheme",
+    "Efficiency-oriented layouts",
+    "Safety and compliance emphasis",
+    "KPI dashboard templates",
+    "Supply chain visualizations",
+    "Quality control metrics"
+  ],
+  "industry_focus": {
+    "metrics": [
+      "Overall Equipment Effectiveness (OEE)",
+      "First Pass Yield (FPY)",
+      "Cycle Time",
+      "Throughput",
+      "Defect Rate",
+      "Inventory Turnover",
+      "Cost per Unit",
+      "Labor Efficiency",
+      "Safety Incidents",
+      "On-Time Delivery"
+    ],
+    "chart_types": [
+      "Pareto charts",
+      "Control charts",
+      "Process flow diagrams",
+      "Capacity utilization",
+      "Quality trends",
+      "Cost breakdowns"
+    ]
+  },
+  "style_guide": {
+    "slide_layouts": [
+      "Operational dashboard",
+      "Production metrics",
+      "Quality control",
+      "Supply chain overview",
+      "Financial performance",
+      "Safety metrics"
+    ],
+    "branding": {
+      "logo_placement": "top_left",
+      "footer_style": "formal_industrial",
+      "border_style": "solid_frame",
+      "header_emphasis": "operational_focus"
+    }
+  }
+}

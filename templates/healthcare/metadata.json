@@ -1,0 +1,80 @@
+{
+  "id": "healthcare",
+  "name": "Healthcare & Life Sciences",
+  "description": "Clean, regulatory-compliant template for healthcare organizations with emphasis on patient outcomes",
+  "preview": "preview.png",
+  "colors": {
+    "primary": "#0369A1",
+    "secondary": "#16A34A",
+    "accent1": "#7C3AED",
+    "accent2": "#DC2626",
+    "background": "#FFFFFF",
+    "text": "#1F2937",
+    "health": "#16A34A",
+    "caution": "#F59E0B",
+    "critical": "#DC2626",
+    "neutral": "#6B7280"
+  },
+  "fonts": {
+    "title_font": "Arial",
+    "body_font": "Arial",
+    "title_size": 36,
+    "subtitle_size": 24,
+    "body_size": 12,
+    "metric_size": 18
+  },
+  "features": [
+    "Clean, medical-grade design",
+    "Regulatory compliance ready",
+    "Patient outcome focused",
+    "Clinical trial ready layouts",
+    "HIPAA-conscious styling",
+    "Quality measure emphasis",
+    "Evidence-based presentations"
+  ],
+  "industry_focus": {
+    "metrics": [
+      "Patient Satisfaction Scores",
+      "Clinical Outcomes",
+      "Readmission Rates",
+      "Length of Stay (LOS)",
+      "Infection Rates",
+      "Mortality Rates",
+      "Cost per Patient",
+      "Revenue per Bed",
+      "Staff Efficiency",
+      "Quality Measures",
+      "Compliance Scores"
+    ],
+    "chart_types": [
+      "Clinical outcome trends",
+      "Patient flow diagrams",
+      "Quality scorecards",
+      "Cost effectiveness analysis",
+      "Risk assessment matrices",
+      "Performance benchmarks"
+    ]
+  },
+  "style_guide": {
+    "slide_layouts": [
+      "Clinical dashboard",
+      "Patient outcomes",
+      "Quality metrics",
+      "Financial performance",
+      "Regulatory compliance",
+      "Research findings"
+    ],
+    "branding": {
+      "logo_placement": "header_center",
+      "footer_style": "regulatory_compliant",
+      "border_style": "clean_medical",
+      "color_usage": "conservative_professional",
+      "disclaimer_ready": true
+    },
+    "compliance": {
+      "hipaa_ready": true,
+      "data_anonymization": true,
+      "source_citation_required": true
+    }
+  }
+}

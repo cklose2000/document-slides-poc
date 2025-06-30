@@ -1,0 +1,27 @@
+{
+  "id": "minimal",
+  "name": "Minimal Modern",
+  "description": "Ultra-clean minimal design for data-focused presentations",
+  "preview": "preview.png",
+  "colors": {
+    "primary": "#000000",
+    "secondary": "#CCCCCC",
+    "accent1": "#FF0000",
+    "accent2": "#0000FF",
+    "background": "#FFFFFF",
+    "text": "#000000"
+  },
+  "fonts": {
+    "title_font": "Helvetica",
+    "body_font": "Helvetica",
+    "title_size": 42,
+    "subtitle_size": 28,
+    "body_size": 14
+  },
+  "features": [
+    "Minimalist aesthetic",
+    "High contrast design",
+    "Focus on content",
+    "Clean data visualization"
+  ]
+}

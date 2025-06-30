@@ -1,0 +1,524 @@
+"""
+Chart Generator for PowerPoint Presentations
+
+This module creates professional charts for PowerPoint slides using
+matplotlib and integrates with the brand template system for
+consistent styling.
+"""
+
+import io
+import base64
+from typing import Dict, List, Any, Optional, Tuple, Union
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+from matplotlib.patches import Rectangle
+import numpy as np
+from PIL import Image
+from io import BytesIO
+
+# Configure matplotlib for better rendering
+plt.style.use('seaborn-v0_8-whitegrid')
+plt.rcParams['figure.dpi'] = 300
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams['axes.facecolor'] = 'white'
+
+
+class ChartGenerator:
+    """Generate branded charts for PowerPoint presentations"""
+    
+    def __init__(self, brand_config: Optional[Dict[str, Any]] = None):
+        """Initialize with brand configuration"""
+        self.brand_config = brand_config or self._get_default_brand_config()
+        self._setup_chart_style()
+    
+    def _get_default_brand_config(self) -> Dict[str, Any]:
+        """Get default brand configuration if none provided"""
+        return {
+            'colors': {
+                'primary': '#4F81BD',
+                'secondary': '#F79646',
+                'accent1': '#9BBB59',
+                'accent2': '#8064A2',
+                'background': '#FFFFFF',
+                'text': '#000000'
+            },
+            'fonts': {
+                'title_font': 'Arial',
+                'body_font': 'Arial',
+                'title_size': 16,
+                'body_size': 12
+            }
+        }
+    
+    def _setup_chart_style(self):
+        """Setup matplotlib style based on brand configuration"""
+        colors = self.brand_config.get('colors', {})
+        fonts = self.brand_config.get('fonts', {})
+        
+        # Set default color cycle
+        color_cycle = [
+            colors.get('primary', '#4F81BD'),
+            colors.get('secondary', '#F79646'),
+            colors.get('accent1', '#9BBB59'),
+            colors.get('accent2', '#8064A2'),
+            '#4BACC6',
+            '#C0504D',
+            '#3F3F3F'
+        ]
+        plt.rcParams['axes.prop_cycle'] = plt.cycler('color', color_cycle)
+        
+        # Set font properties
+        plt.rcParams['font.family'] = fonts.get('body_font', 'Arial')
+        plt.rcParams['font.size'] = fonts.get('body_size', 12)
+        plt.rcParams['axes.titlesize'] = fonts.get('title_size', 16)
+        plt.rcParams['axes.labelsize'] = fonts.get('body_size', 12)
+        
+        # Set text color
+        text_color = colors.get('text', '#000000')
+        plt.rcParams['text.color'] = text_color
+        plt.rcParams['axes.labelcolor'] = text_color
+        plt.rcParams['xtick.color'] = text_color
+        plt.rcParams['ytick.color'] = text_color
+    
+    def create_bar_chart(self, data: Dict[str, Union[int, float]], 
+                        title: str = "", 
+                        x_label: str = "",
+                        y_label: str = "",
+                        orientation: str = "vertical",
+                        size: Tuple[float, float] = (8, 6)) -> BytesIO:
+        """
+        Create a bar chart with brand styling
+        
+        Args:
+            data: Dictionary of labels to values
+            title: Chart title
+            x_label: X-axis label
+            y_label: Y-axis label
+            orientation: 'vertical' or 'horizontal'
+            size: Figure size in inches
+            
+        Returns:
+            BytesIO object containing the chart image
+        """
+        fig, ax = plt.subplots(figsize=size, facecolor='white')
+        
+        labels = list(data.keys())
+        values = list(data.values())
+        
+        # Create bars with brand colors
+        colors = self._get_chart_colors(len(labels))
+        
+        if orientation == 'horizontal':
+            bars = ax.barh(labels, values, color=colors)
+            ax.set_xlabel(y_label)
+            ax.set_ylabel(x_label)
+        else:
+            bars = ax.bar(labels, values, color=colors)
+            ax.set_xlabel(x_label)
+            ax.set_ylabel(y_label)
+            
+            # Rotate x labels if needed
+            if len(labels) > 5:
+                plt.xticks(rotation=45, ha='right')
+        
+        # Add value labels on bars
+        self._add_bar_labels(ax, bars, orientation)
+        
+        # Set title
+        if title:
+            ax.set_title(title, fontsize=self.brand_config['fonts']['title_size'], 
+                        pad=20, fontweight='bold')
+        
+        # Style the plot
+        self._style_chart(ax)
+        
+        # Save to BytesIO
+        buffer = BytesIO()
+        plt.tight_layout()
+        plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight', 
+                   facecolor='white', edgecolor='none')
+        plt.close()
+        
+        buffer.seek(0)
+        return buffer
+    
+    def create_line_chart(self, data: Dict[str, List[Union[int, float]]], 
+                         title: str = "",
+                         x_label: str = "",
+                         y_label: str = "",
+                         x_values: Optional[List] = None,
+                         size: Tuple[float, float] = (8, 6)) -> BytesIO:
+        """
+        Create a line chart with brand styling
+        
+        Args:
+            data: Dictionary of series names to values
+            title: Chart title
+            x_label: X-axis label
+            y_label: Y-axis label
+            x_values: X-axis values (optional)
+            size: Figure size in inches
+            
+        Returns:
+            BytesIO object containing the chart image
+        """
+        fig, ax = plt.subplots(figsize=size, facecolor='white')
+        
+        colors = self._get_chart_colors(len(data))
+        
+        for i, (series_name, values) in enumerate(data.items()):
+            if x_values is None:
+                x_values = list(range(len(values)))
+            
+            ax.plot(x_values, values, label=series_name, color=colors[i], 
+                   linewidth=2.5, marker='o', markersize=6)
+        
+        # Set labels
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        
+        # Set title
+        if title:
+            ax.set_title(title, fontsize=self.brand_config['fonts']['title_size'], 
+                        pad=20, fontweight='bold')
+        
+        # Add legend
+        if len(data) > 1:
+            ax.legend(loc='best', frameon=True, fancybox=True, shadow=True)
+        
+        # Style the plot
+        self._style_chart(ax)
+        
+        # Save to BytesIO
+        buffer = BytesIO()
+        plt.tight_layout()
+        plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight',
+                   facecolor='white', edgecolor='none')
+        plt.close()
+        
+        buffer.seek(0)
+        return buffer
+    
+    def create_pie_chart(self, data: Dict[str, Union[int, float]], 
+                        title: str = "",
+                        show_percentages: bool = True,
+                        explode_largest: bool = False,
+                        size: Tuple[float, float] = (8, 8)) -> BytesIO:
+        """
+        Create a pie chart with brand styling
+        
+        Args:
+            data: Dictionary of labels to values
+            title: Chart title
+            show_percentages: Show percentage labels
+            explode_largest: Explode the largest slice
+            size: Figure size in inches
+            
+        Returns:
+            BytesIO object containing the chart image
+        """
+        fig, ax = plt.subplots(figsize=size, facecolor='white')
+        
+        labels = list(data.keys())
+        values = list(data.values())
+        colors = self._get_chart_colors(len(labels))
+        
+        # Explode largest slice if requested
+        explode = [0] * len(values)
+        if explode_largest and values:
+            max_idx = values.index(max(values))
+            explode[max_idx] = 0.1
+        
+        # Create pie chart
+        if show_percentages:
+            autopct = '%1.1f%%'
+        else:
+            autopct = None
+        
+        wedges, texts, autotexts = ax.pie(values, labels=labels, colors=colors,
+                                          autopct=autopct, explode=explode,
+                                          startangle=90, shadow=True)
+        
+        # Style text
+        for text in texts:
+            text.set_fontsize(self.brand_config['fonts']['body_size'])
+        
+        if show_percentages:
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+                autotext.set_fontsize(self.brand_config['fonts']['body_size'] - 2)
+        
+        # Set title
+        if title:
+            ax.set_title(title, fontsize=self.brand_config['fonts']['title_size'], 
+                        pad=20, fontweight='bold')
+        
+        # Equal aspect ratio ensures circular pie
+        ax.axis('equal')
+        
+        # Save to BytesIO
+        buffer = BytesIO()
+        plt.tight_layout()
+        plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight',
+                   facecolor='white', edgecolor='none')
+        plt.close()
+        
+        buffer.seek(0)
+        return buffer
+    
+    def create_waterfall_chart(self, data: List[Tuple[str, float]], 
+                              title: str = "",
+                              y_label: str = "Value",
+                              size: Tuple[float, float] = (10, 6)) -> BytesIO:
+        """
+        Create a waterfall chart for financial data
+        
+        Args:
+            data: List of tuples (label, value)
+            title: Chart title
+            y_label: Y-axis label
+            size: Figure size in inches
+            
+        Returns:
+            BytesIO object containing the chart image
+        """
+        fig, ax = plt.subplots(figsize=size, facecolor='white')
+        
+        # Calculate cumulative values
+        cumulative = 0
+        step_values = []
+        colors = []
+        
+        for i, (label, value) in enumerate(data):
+            if i == 0:  # Starting value
+                step_values.append((0, value))
+                colors.append(self.brand_config['colors']['primary'])
+            else:
+                step_values.append((cumulative, value))
+                if value >= 0:
+                    colors.append(self.brand_config['colors']['accent1'])  # Positive
+                else:
+                    colors.append(self.brand_config['colors']['secondary'])  # Negative
+            cumulative += value
+        
+        # Add final total
+        labels = [item[0] for item in data] + ['Total']
+        step_values.append((0, cumulative))
+        colors.append(self.brand_config['colors']['primary'])
+        
+        # Create bars
+        x_pos = range(len(labels))
+        
+        for i, ((bottom, height), color) in enumerate(zip(step_values, colors)):
+            ax.bar(i, abs(height), bottom=bottom if height >= 0 else bottom + height,
+                  color=color, edgecolor='black', linewidth=1)
+        
+        # Add connecting lines
+        for i in range(len(step_values) - 2):
+            if i == 0:
+                y1 = step_values[i][1]
+            else:
+                y1 = step_values[i][0] + step_values[i][1]
+            y2 = step_values[i + 1][0]
+            
+            ax.plot([i + 0.4, i + 1.4], [y1, y2], 'k--', alpha=0.5)
+        
+        # Set labels
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(labels, rotation=45 if len(labels) > 5 else 0, ha='right')
+        ax.set_ylabel(y_label)
+        
+        # Set title
+        if title:
+            ax.set_title(title, fontsize=self.brand_config['fonts']['title_size'], 
+                        pad=20, fontweight='bold')
+        
+        # Style the plot
+        self._style_chart(ax)
+        
+        # Save to BytesIO
+        buffer = BytesIO()
+        plt.tight_layout()
+        plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight',
+                   facecolor='white', edgecolor='none')
+        plt.close()
+        
+        buffer.seek(0)
+        return buffer
+    
+    def create_scatter_plot(self, x_data: List[float], y_data: List[float],
+                           labels: Optional[List[str]] = None,
+                           title: str = "",
+                           x_label: str = "",
+                           y_label: str = "",
+                           trendline: bool = True,
+                           size: Tuple[float, float] = (8, 6)) -> BytesIO:
+        """
+        Create a scatter plot with optional trendline
+        
+        Args:
+            x_data: X-axis values
+            y_data: Y-axis values
+            labels: Point labels (optional)
+            title: Chart title
+            x_label: X-axis label
+            y_label: Y-axis label
+            trendline: Add trendline
+            size: Figure size in inches
+            
+        Returns:
+            BytesIO object containing the chart image
+        """
+        fig, ax = plt.subplots(figsize=size, facecolor='white')
+        
+        # Create scatter plot
+        scatter = ax.scatter(x_data, y_data, 
+                           c=self.brand_config['colors']['primary'],
+                           s=100, alpha=0.7, edgecolors='black', linewidth=1)
+        
+        # Add labels if provided
+        if labels:
+            for i, label in enumerate(labels):
+                ax.annotate(label, (x_data[i], y_data[i]), 
+                          xytext=(5, 5), textcoords='offset points',
+                          fontsize=8, alpha=0.7)
+        
+        # Add trendline if requested
+        if trendline and len(x_data) > 1:
+            z = np.polyfit(x_data, y_data, 1)
+            p = np.poly1d(z)
+            x_trend = np.linspace(min(x_data), max(x_data), 100)
+            ax.plot(x_trend, p(x_trend), "--", 
+                   color=self.brand_config['colors']['secondary'],
+                   linewidth=2, label=f'Trend: y={z[0]:.2f}x+{z[1]:.2f}')
+            ax.legend()
+        
+        # Set labels
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        
+        # Set title
+        if title:
+            ax.set_title(title, fontsize=self.brand_config['fonts']['title_size'], 
+                        pad=20, fontweight='bold')
+        
+        # Style the plot
+        self._style_chart(ax)
+        
+        # Save to BytesIO
+        buffer = BytesIO()
+        plt.tight_layout()
+        plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight',
+                   facecolor='white', edgecolor='none')
+        plt.close()
+        
+        buffer.seek(0)
+        return buffer
+    
+    def _get_chart_colors(self, n: int) -> List[str]:
+        """Get n colors from the brand palette"""
+        colors = self.brand_config.get('colors', {})
+        
+        color_list = [
+            colors.get('primary', '#4F81BD'),
+            colors.get('secondary', '#F79646'),
+            colors.get('accent1', '#9BBB59'),
+            colors.get('accent2', '#8064A2'),
+            '#4BACC6',
+            '#C0504D',
+            '#3F3F3F'
+        ]
+        
+        # Repeat colors if needed
+        while len(color_list) < n:
+            color_list.extend(color_list)
+        
+        return color_list[:n]
+    
+    def _add_bar_labels(self, ax, bars, orientation: str):
+        """Add value labels to bars"""
+        for bar in bars:
+            if orientation == 'horizontal':
+                width = bar.get_width()
+                label_x = width
+                label_y = bar.get_y() + bar.get_height() / 2
+                ha = 'left' if width >= 0 else 'right'
+                va = 'center'
+                offset = 3 if width >= 0 else -3
+                ax.text(label_x + offset, label_y, f'{width:,.0f}',
+                       ha=ha, va=va, fontsize=10)
+            else:
+                height = bar.get_height()
+                label_x = bar.get_x() + bar.get_width() / 2
+                label_y = height
+                ha = 'center'
+                va = 'bottom' if height >= 0 else 'top'
+                offset = 3 if height >= 0 else -3
+                ax.text(label_x, label_y + offset, f'{height:,.0f}',
+                       ha=ha, va=va, fontsize=10)
+    
+    def _style_chart(self, ax):
+        """Apply consistent styling to charts"""
+        # Remove top and right spines
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        # Make remaining spines lighter
+        ax.spines['bottom'].set_color('#CCCCCC')
+        ax.spines['left'].set_color('#CCCCCC')
+        
+        # Lighten grid
+        ax.grid(True, alpha=0.3)
+        
+        # Set tick parameters
+        ax.tick_params(colors='#666666', which='both')
+    
+    def save_chart_to_file(self, chart_buffer: BytesIO, filepath: str):
+        """Save chart buffer to file"""
+        with open(filepath, 'wb') as f:
+            f.write(chart_buffer.getvalue())
+    
+    def get_chart_as_base64(self, chart_buffer: BytesIO) -> str:
+        """Convert chart buffer to base64 string"""
+        return base64.b64encode(chart_buffer.getvalue()).decode('utf-8')
+
+
+# Example usage
+if __name__ == "__main__":
+    # Create chart generator with brand config
+    brand_config = {
+        'colors': {
+            'primary': '#003366',
+            'secondary': '#FF6600',
+            'accent1': '#0066CC',
+            'accent2': '#666666'
+        },
+        'fonts': {
+            'title_font': 'Arial',
+            'body_font': 'Arial',
+            'title_size': 18,
+            'body_size': 12
+        }
+    }
+    
+    chart_gen = ChartGenerator(brand_config)
+    
+    # Example bar chart
+    data = {
+        'Q1 2024': 125000,
+        'Q2 2024': 145000,
+        'Q3 2024': 162000,
+        'Q4 2024': 189000
+    }
+    
+    chart_buffer = chart_gen.create_bar_chart(
+        data,
+        title="Quarterly Revenue Growth",
+        x_label="Quarter",
+        y_label="Revenue ($)"
+    )
+    
+    # Save to file
+    chart_gen.save_chart_to_file(chart_buffer, "revenue_chart.png")

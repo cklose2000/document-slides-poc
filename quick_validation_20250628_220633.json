@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-06-28T22:06:33.270254",
+  "base_url": "http://localhost:5001",
+  "checks": {
+    "api_health": {
+      "passed": false,
+      "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /health (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7cf18275f440>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+    },
+    "templates": {
+      "passed": false,
+      "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/templates (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7cf1826902f0>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+    },
+    "document_preview": {
+      "passed": false,
+      "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/generate-slides/preview (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7cf1826909e0>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+    },
+    "slide_generation": {
+      "passed": false,
+      "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/generate-slides (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7cf1826911c0>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+    },
+    "file_system": {
+      "passed": true
+    }
+  },
+  "overall_status": "error"
+}
