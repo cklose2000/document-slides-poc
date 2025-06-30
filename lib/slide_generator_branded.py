@@ -18,6 +18,8 @@ try:
     from .visual_effects import VisualEffectsEngine
     from .simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
     from .rich_slide_layouts import RichSlideLayouts
+    from .slide_components import TextComponents, DataComponents, VisualComponents, LayoutComponents, CompositeComponents
+    from .layout_engine import SmartLayoutEngine
 except ImportError:
     from template_parser import BrandManager, TemplateParser
     from source_tracker import SourceTracker
@@ -25,6 +27,8 @@ except ImportError:
     from visual_effects import VisualEffectsEngine
     from simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
     from rich_slide_layouts import RichSlideLayouts
+    from slide_components import TextComponents, DataComponents, VisualComponents, LayoutComponents, CompositeComponents
+    from layout_engine import SmartLayoutEngine
 import os
 import re
 from typing import Dict, List, Any, Optional, Tuple
@@ -55,6 +59,9 @@ class BrandedSlideGenerator:
         
         # Initialize rich layouts for substantial slides
         self.rich_layouts = RichSlideLayouts(self.brand_config)
+        
+        # Initialize layout engine for smart layout decisions
+        self.layout_engine = SmartLayoutEngine()
         
         # Initialize presentation
         self._init_presentation()
@@ -1485,5 +1492,675 @@ class BrandedSlideGenerator:
         
         # Create the SWOT matrix
         self.rich_layouts.create_swot_analysis_slide(slide, swot_data, title)
+        
+        return slide
+    
+    # Professional Slide Types Implementation
+    
+    def create_executive_summary_slide(self, data: Dict[str, Any]) -> Any:
+        """
+        Create an executive summary slide with KPI cards and highlights
+        
+        Args:
+            data: Dictionary containing:
+                - company_name: str
+                - period: str
+                - key_metrics: Dict with metric data including value, change, data_point_id
+                - highlights: List of key achievement strings
+                - source_refs: Dict of source references
+        """
+        # Get layout recommendation
+        layout_rec = self.layout_engine.recommend_professional_slide_layout('executive_summary', data)
+        
+        # Create slide
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Initialize component system
+        components = CompositeComponents(slide)
+        
+        # Add title
+        title = f"{data.get('company_name', 'Company')} - Executive Summary"
+        if 'period' in data:
+            title += f" ({data['period']})"
+        components.text.add_title(title, 0.5, 0.5, 9.0, 0.8, font_size=layout_rec.font_sizes['title'])
+        
+        # Add KPI Dashboard
+        if 'key_metrics' in data and layout_rec.component_layout:
+            kpi_area = layout_rec.component_layout.get('kpi_area', {})
+            kpis = []
+            
+            # Use filtered metrics if available
+            metrics = layout_rec.filtered_metrics or data['key_metrics']
+            
+            for metric_name, metric_data in metrics.items():
+                kpi = {
+                    'title': self.layout_engine.MetricsPrioritizer.format_metric_name(metric_name),
+                    'value': metric_data.get('value', 0),
+                    'change': metric_data.get('change'),
+                    'data_point_id': metric_data.get('data_point_id')
+                }
+                kpis.append(kpi)
+            
+            components.add_kpi_dashboard(
+                kpis[:4],  # Limit to 4 KPIs for executive summary
+                left=kpi_area.get('left', 0.5),
+                top=kpi_area.get('top', 1.5),
+                arrangement='horizontal'
+            )
+        
+        # Add highlights
+        if 'highlights' in data and layout_rec.component_layout:
+            highlights_area = layout_rec.component_layout.get('highlights_area', {})
+            
+            # Section header
+            components.layout.add_section_header(
+                "Key Highlights",
+                highlights_area.get('left', 0.5),
+                highlights_area.get('top', 4.0) - 0.3,
+                highlights_area.get('width', 9.0)
+            )
+            
+            # Bullet points
+            components.text.add_bullet_points(
+                data['highlights'][:5],  # Limit to 5 highlights
+                highlights_area.get('left', 0.5),
+                highlights_area.get('top', 4.0) + 0.3,
+                highlights_area.get('width', 9.0),
+                highlights_area.get('height', 2.5) - 0.6,
+                font_size=layout_rec.font_sizes.get('body', 12)
+            )
+        
+        # Add source attribution
+        if 'source_refs' in data:
+            self.add_source_attribution(slide, data['source_refs'])
+        
+        return slide
+    
+    def create_financial_performance_slide(self, data: Dict[str, Any]) -> Any:
+        """
+        Create a financial performance analysis slide
+        
+        Args:
+            data: Dictionary containing:
+                - company_name: str
+                - period: str
+                - financial_data: Dict of financial metrics
+                - variance_data: Dict of variance analysis
+                - benchmarks: Dict of benchmark comparisons
+                - source_refs: Dict of source references
+        """
+        # Get layout recommendation
+        layout_rec = self.layout_engine.recommend_professional_slide_layout('financial_analysis', data)
+        
+        # Create slide
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'chart', self.brand_config)
+        
+        # Initialize components
+        components = CompositeComponents(slide)
+        
+        # Add title
+        title = f"Financial Performance Analysis"
+        if 'period' in data:
+            title += f" - {data['period']}"
+        components.text.add_title(title, 0.5, 0.5, 9.0, 0.8, font_size=layout_rec.font_sizes['title'])
+        
+        # Layout areas
+        if layout_rec.component_layout:
+            metrics_area = layout_rec.component_layout.get('metrics_area', {})
+            chart_area = layout_rec.component_layout.get('chart_area', {})
+            variance_area = layout_rec.component_layout.get('variance_area', {})
+            
+            # Add metrics table
+            if 'financial_data' in data:
+                # Convert financial data to table format
+                table_data = []
+                metrics = layout_rec.filtered_metrics or data['financial_data']
+                
+                for metric_name, metric_value in metrics.items():
+                    row = {
+                        'Metric': self.layout_engine.MetricsPrioritizer.format_metric_name(metric_name),
+                        'Value': metric_value.get('value', 'N/A') if isinstance(metric_value, dict) else metric_value,
+                        'YoY Change': metric_value.get('change', 'N/A') if isinstance(metric_value, dict) else 'N/A'
+                    }
+                    table_data.append(row)
+                
+                components.data.add_metric_table(
+                    table_data[:6],  # Limit to 6 metrics
+                    metrics_area.get('left', 0.5),
+                    metrics_area.get('top', 1.5),
+                    metrics_area.get('width', 4.0),
+                    metrics_area.get('height', 2.5)
+                )
+            
+            # Add waterfall chart
+            if 'financial_data' in data and self.chart_generator:
+                chart_data = {
+                    'categories': [],
+                    'values': []
+                }
+                
+                # Prepare data for waterfall chart
+                for metric_name, metric_value in list(metrics.items())[:5]:
+                    chart_data['categories'].append(
+                        self.layout_engine.MetricsPrioritizer.format_metric_name(metric_name)
+                    )
+                    val = metric_value.get('value', 0) if isinstance(metric_value, dict) else metric_value
+                    # Extract numeric value
+                    if isinstance(val, str):
+                        val = float(re.sub(r'[^\d.-]', '', val) or 0)
+                    chart_data['values'].append(val)
+                
+                # Generate and add chart
+                chart_stream = self.chart_generator.create_waterfall_chart(
+                    chart_data,
+                    'Financial Performance Breakdown'
+                )
+                if chart_stream:
+                    chart_stream.seek(0)
+                    slide.shapes.add_picture(
+                        chart_stream,
+                        Inches(chart_area.get('left', 4.8)),
+                        Inches(chart_area.get('top', 1.5)),
+                        width=Inches(chart_area.get('width', 4.7)),
+                        height=Inches(chart_area.get('height', 2.5))
+                    )
+            
+            # Add variance analysis table
+            if 'variance_data' in data:
+                variance_table = []
+                for item, variance in data['variance_data'].items():
+                    variance_table.append({
+                        'Item': item,
+                        'Actual': variance.get('actual', 'N/A'),
+                        'Budget': variance.get('budget', 'N/A'),
+                        'Variance': variance.get('variance', 'N/A'),
+                        'Variance %': variance.get('variance_pct', 'N/A')
+                    })
+                
+                components.data.add_metric_table(
+                    variance_table[:4],
+                    variance_area.get('left', 0.5),
+                    variance_area.get('top', 4.3),
+                    variance_area.get('width', 9.0),
+                    variance_area.get('height', 2.2)
+                )
+        
+        # Add source attribution
+        if 'source_refs' in data:
+            self.add_source_attribution(slide, data['source_refs'])
+        
+        return slide
+    
+    def create_market_analysis_slide(self, data: Dict[str, Any]) -> Any:
+        """
+        Create a market analysis and positioning slide
+        
+        Args:
+            data: Dictionary containing:
+                - company_name: str
+                - market_data: Dict with market share and size data
+                - competitors: List of competitor data
+                - positioning_metrics: Dict with x/y positioning data
+                - source_refs: Dict of source references
+        """
+        # Get layout recommendation
+        layout_rec = self.layout_engine.recommend_professional_slide_layout('market_analysis', data)
+        
+        # Create slide
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'chart', self.brand_config)
+        
+        # Initialize components
+        components = CompositeComponents(slide)
+        
+        # Add title
+        title = f"Market Analysis & Competitive Positioning"
+        components.text.add_title(title, 0.5, 0.5, 9.0, 0.8, font_size=layout_rec.font_sizes['title'])
+        
+        # Layout areas
+        if layout_rec.component_layout:
+            share_area = layout_rec.component_layout.get('market_share_area', {})
+            matrix_area = layout_rec.component_layout.get('positioning_matrix', {})
+            
+            # Add market share chart
+            if 'market_data' in data and self.chart_generator:
+                # Prepare pie chart data
+                chart_data = {
+                    'categories': [],
+                    'values': []
+                }
+                
+                for company, share in data['market_data'].items():
+                    chart_data['categories'].append(company)
+                    chart_data['values'].append(share if isinstance(share, (int, float)) else 0)
+                
+                # Generate and add chart
+                chart_stream = self.chart_generator.create_pie_chart(
+                    chart_data,
+                    'Market Share Distribution'
+                )
+                if chart_stream:
+                    chart_stream.seek(0)
+                    slide.shapes.add_picture(
+                        chart_stream,
+                        Inches(share_area.get('left', 0.5)),
+                        Inches(share_area.get('top', 1.5)),
+                        width=Inches(share_area.get('width', 4.5)),
+                        height=Inches(share_area.get('height', 2.5))
+                    )
+            
+            # Add competitive positioning matrix (2x2)
+            if 'positioning_metrics' in data:
+                # Create positioning matrix background
+                matrix_bg = slide.shapes.add_shape(
+                    MSO_SHAPE.RECTANGLE,
+                    Inches(matrix_area.get('left', 5.2)),
+                    Inches(matrix_area.get('top', 1.5)),
+                    Inches(matrix_area.get('width', 4.3)),
+                    Inches(matrix_area.get('height', 4.5))
+                )
+                matrix_bg.fill.solid()
+                matrix_bg.fill.fore_color.rgb = RGBColor(250, 250, 250)
+                matrix_bg.line.color.rgb = RGBColor(200, 200, 200)
+                
+                # Add grid lines
+                mid_x = matrix_area.get('left', 5.2) + matrix_area.get('width', 4.3) / 2
+                mid_y = matrix_area.get('top', 1.5) + matrix_area.get('height', 4.5) / 2
+                
+                # Vertical line
+                v_line = components.visual.add_divider(
+                    mid_x, matrix_area.get('top', 1.5),
+                    0, thickness=1
+                )
+                # Horizontal line
+                h_line = components.visual.add_divider(
+                    matrix_area.get('left', 5.2), mid_y,
+                    matrix_area.get('width', 4.3), thickness=1
+                )
+                
+                # Add axis labels
+                components.text.add_body_text(
+                    data.get('x_axis_label', 'Market Share →'),
+                    matrix_area.get('left', 5.2) + matrix_area.get('width', 4.3) / 2 - 0.8,
+                    matrix_area.get('top', 1.5) + matrix_area.get('height', 4.5) + 0.1,
+                    1.6, 0.3, font_size=10
+                )
+                
+                components.text.add_body_text(
+                    data.get('y_axis_label', 'Growth Rate →'),
+                    matrix_area.get('left', 5.2) - 0.8,
+                    matrix_area.get('top', 1.5) + matrix_area.get('height', 4.5) / 2 - 0.2,
+                    0.7, 0.4, font_size=10
+                )
+                
+                # Plot competitors
+                for company, metrics in data['positioning_metrics'].items():
+                    x_val = metrics.get('x', 0.5)  # 0-1 scale
+                    y_val = metrics.get('y', 0.5)  # 0-1 scale
+                    
+                    # Calculate position
+                    pos_x = matrix_area.get('left', 5.2) + x_val * matrix_area.get('width', 4.3)
+                    pos_y = matrix_area.get('top', 1.5) + (1 - y_val) * matrix_area.get('height', 4.5)
+                    
+                    # Add company bubble
+                    bubble = slide.shapes.add_shape(
+                        MSO_SHAPE.OVAL,
+                        Inches(pos_x - 0.3),
+                        Inches(pos_y - 0.3),
+                        Inches(0.6),
+                        Inches(0.6)
+                    )
+                    bubble.fill.solid()
+                    
+                    # Color based on company (highlight own company)
+                    if company == data.get('company_name'):
+                        bubble.fill.fore_color.rgb = self._hex_to_rgb(self._get_brand_color('primary'))
+                    else:
+                        bubble.fill.fore_color.rgb = self._hex_to_rgb(self._get_brand_color('accent'))
+                    
+                    # Add label
+                    components.text.add_body_text(
+                        company[:15],  # Truncate long names
+                        pos_x - 0.4,
+                        pos_y + 0.35,
+                        0.8, 0.3,
+                        font_size=9
+                    )
+        
+        # Add source attribution
+        if 'source_refs' in data:
+            self.add_source_attribution(slide, data['source_refs'])
+        
+        return slide
+    
+    def create_growth_strategy_slide(self, data: Dict[str, Any]) -> Any:
+        """
+        Create a growth strategy and roadmap slide
+        
+        Args:
+            data: Dictionary containing:
+                - company_name: str
+                - initiatives: List of strategic initiatives
+                - timeline_data: List of timeline events with dates
+                - milestones: Dict of key milestones
+                - source_refs: Dict of source references
+        """
+        # Get layout recommendation
+        layout_rec = self.layout_engine.recommend_professional_slide_layout('growth_strategy', data)
+        
+        # Create slide
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Initialize components
+        components = CompositeComponents(slide)
+        
+        # Add title
+        title = f"Growth Strategy & Roadmap"
+        components.text.add_title(title, 0.5, 0.5, 9.0, 0.8, font_size=layout_rec.font_sizes['title'])
+        
+        # Layout areas
+        if layout_rec.component_layout:
+            timeline_area = layout_rec.component_layout.get('timeline_area', {})
+            initiatives_area = layout_rec.component_layout.get('initiatives_area', {})
+            
+            # Add timeline visualization
+            if 'timeline_data' in data:
+                events = []
+                for event in data['timeline_data'][:6]:  # Limit to 6 events
+                    events.append({
+                        'date': event.get('date', ''),
+                        'title': event.get('title', ''),
+                        'status': event.get('status', 'planned')
+                    })
+                
+                components.add_timeline_visualization(
+                    events,
+                    timeline_area.get('left', 0.5),
+                    timeline_area.get('top', 1.5),
+                    timeline_area.get('width', 9.0),
+                    timeline_area.get('height', 3.0)
+                )
+            
+            # Add strategic initiatives
+            if 'initiatives' in data:
+                # Section header
+                components.layout.add_section_header(
+                    "Key Strategic Initiatives",
+                    initiatives_area.get('left', 0.5),
+                    initiatives_area.get('top', 5.0) - 0.3,
+                    initiatives_area.get('width', 9.0)
+                )
+                
+                # Initiative cards in grid
+                grid_cells = components.layout.create_grid_layout(
+                    rows=1,
+                    cols=min(4, len(data['initiatives'])),
+                    left=initiatives_area.get('left', 0.5),
+                    top=initiatives_area.get('top', 5.0) + 0.2,
+                    width=initiatives_area.get('width', 9.0),
+                    height=initiatives_area.get('height', 1.5) - 0.5
+                )
+                
+                for i, (initiative, cell) in enumerate(zip(data['initiatives'][:4], grid_cells)):
+                    # Initiative card
+                    card = components.visual.add_callout_box(
+                        initiative.get('title', f'Initiative {i+1}'),
+                        cell['left'],
+                        cell['top'],
+                        cell['width'],
+                        cell['height'],
+                        style='info'
+                    )
+                    
+                    # Progress indicator if available
+                    if 'progress' in initiative:
+                        components.data.add_progress_indicator(
+                            initiative['progress'],
+                            cell['left'],
+                            cell['top'] + cell['height'] - 0.3,
+                            cell['width'],
+                            height=0.2
+                        )
+        
+        # Add source attribution
+        if 'source_refs' in data:
+            self.add_source_attribution(slide, data['source_refs'])
+        
+        return slide
+    
+    def create_risk_assessment_slide(self, data: Dict[str, Any]) -> Any:
+        """
+        Create a risk assessment and mitigation slide
+        
+        Args:
+            data: Dictionary containing:
+                - company_name: str
+                - risks: List of risks with impact, probability, and mitigation
+                - mitigations: Dict of mitigation strategies
+                - source_refs: Dict of source references
+        """
+        # Get layout recommendation
+        layout_rec = self.layout_engine.recommend_professional_slide_layout('risk_assessment', data)
+        
+        # Create slide
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Initialize components
+        components = CompositeComponents(slide)
+        
+        # Add title
+        title = f"Risk Assessment & Mitigation Strategy"
+        components.text.add_title(title, 0.5, 0.5, 9.0, 0.8, font_size=layout_rec.font_sizes['title'])
+        
+        # Layout areas
+        if layout_rec.component_layout:
+            matrix_area = layout_rec.component_layout.get('matrix_area', {})
+            mitigation_area = layout_rec.component_layout.get('mitigation_area', {})
+            
+            # Add risk matrix
+            if 'risks' in data:
+                # Format risks for matrix
+                risk_list = []
+                for risk in data['risks'][:9]:  # Limit to 9 risks
+                    risk_list.append({
+                        'name': risk.get('name', 'Risk'),
+                        'impact': risk.get('impact', 2),  # 1-3 scale
+                        'probability': risk.get('probability', 2),  # 1-3 scale
+                        'category': risk.get('category', 'Operational')
+                    })
+                
+                components.add_risk_matrix(
+                    risk_list,
+                    matrix_area.get('left', 0.5),
+                    matrix_area.get('top', 1.5),
+                    size=matrix_area.get('width', 4.5)
+                )
+            
+            # Add mitigation strategies table
+            if 'mitigations' in data:
+                # Section header
+                components.layout.add_section_header(
+                    "Mitigation Strategies",
+                    mitigation_area.get('left', 5.3),
+                    mitigation_area.get('top', 1.5) - 0.3,
+                    mitigation_area.get('width', 4.2)
+                )
+                
+                # Mitigation table
+                mitigation_data = []
+                for risk_name, strategy in list(data['mitigations'].items())[:6]:
+                    mitigation_data.append({
+                        'Risk': risk_name[:20],  # Truncate long names
+                        'Strategy': strategy.get('strategy', 'TBD')[:50],
+                        'Status': strategy.get('status', 'Planned')
+                    })
+                
+                components.data.add_metric_table(
+                    mitigation_data,
+                    mitigation_area.get('left', 5.3),
+                    mitigation_area.get('top', 1.5) + 0.3,
+                    mitigation_area.get('width', 4.2),
+                    mitigation_area.get('height', 4.5) - 0.6
+                )
+        
+        # Add source attribution
+        if 'source_refs' in data:
+            self.add_source_attribution(slide, data['source_refs'])
+        
+        return slide
+    
+    def create_investment_thesis_slide(self, data: Dict[str, Any]) -> Any:
+        """
+        Create an investment thesis and recommendations slide
+        
+        Args:
+            data: Dictionary containing:
+                - company_name: str
+                - thesis_points: List of investment thesis points
+                - recommendations: List of recommendations
+                - supporting_data: Dict of supporting metrics
+                - source_refs: Dict of source references
+        """
+        # Get layout recommendation
+        layout_rec = self.layout_engine.recommend_professional_slide_layout('investment_thesis', data)
+        
+        # Create slide
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Initialize components
+        components = CompositeComponents(slide)
+        
+        # Add title
+        title = f"Investment Thesis & Recommendations"
+        components.text.add_title(title, 0.5, 0.5, 9.0, 0.8, font_size=layout_rec.font_sizes['title'])
+        
+        # Layout areas
+        if layout_rec.component_layout:
+            thesis_area = layout_rec.component_layout.get('thesis_area', {})
+            recommendations_area = layout_rec.component_layout.get('recommendations_area', {})
+            
+            # Add investment thesis points
+            if 'thesis_points' in data:
+                # Section header
+                components.layout.add_section_header(
+                    "Investment Thesis",
+                    thesis_area.get('left', 0.5),
+                    thesis_area.get('top', 1.5) - 0.3,
+                    thesis_area.get('width', 9.0)
+                )
+                
+                # Key drivers as cards
+                grid_cells = components.layout.create_grid_layout(
+                    rows=1,
+                    cols=min(3, len(data['thesis_points'])),
+                    left=thesis_area.get('left', 0.5),
+                    top=thesis_area.get('top', 1.5) + 0.3,
+                    width=thesis_area.get('width', 9.0),
+                    height=thesis_area.get('height', 2.0) - 0.6
+                )
+                
+                for i, (point, cell) in enumerate(zip(data['thesis_points'][:3], grid_cells)):
+                    # Investment driver card
+                    components.visual.add_callout_box(
+                        point,
+                        cell['left'],
+                        cell['top'],
+                        cell['width'],
+                        cell['height'],
+                        style='success'
+                    )
+            
+            # Add recommendations
+            if 'recommendations' in data:
+                # Section header
+                components.layout.add_section_header(
+                    "Recommendations",
+                    recommendations_area.get('left', 0.5),
+                    recommendations_area.get('top', 3.8) - 0.3,
+                    recommendations_area.get('width', 9.0)
+                )
+                
+                # Recommendations with supporting data
+                rec_grid = components.layout.create_grid_layout(
+                    rows=min(2, (len(data['recommendations']) + 1) // 2),
+                    cols=2,
+                    left=recommendations_area.get('left', 0.5),
+                    top=recommendations_area.get('top', 3.8) + 0.3,
+                    width=recommendations_area.get('width', 9.0),
+                    height=recommendations_area.get('height', 2.7) - 0.6
+                )
+                
+                for i, (rec, cell) in enumerate(zip(data['recommendations'][:4], rec_grid)):
+                    # Recommendation box
+                    rec_box = slide.shapes.add_shape(
+                        MSO_SHAPE.ROUNDED_RECTANGLE,
+                        Inches(cell['left']),
+                        Inches(cell['top']),
+                        Inches(cell['width']),
+                        Inches(cell['height'])
+                    )
+                    rec_box.fill.solid()
+                    rec_box.fill.fore_color.rgb = RGBColor(240, 248, 255)  # Light blue
+                    rec_box.line.color.rgb = self._hex_to_rgb(self._get_brand_color('primary'))
+                    rec_box.line.width = Pt(2)
+                    
+                    # Recommendation text
+                    text_box = slide.shapes.add_textbox(
+                        Inches(cell['left'] + 0.1),
+                        Inches(cell['top'] + 0.1),
+                        Inches(cell['width'] - 0.2),
+                        Inches(cell['height'] - 0.2)
+                    )
+                    text_frame = text_box.text_frame
+                    text_frame.clear()
+                    
+                    # Title
+                    p = text_frame.add_paragraph()
+                    p.text = rec.get('title', f'Recommendation {i+1}')
+                    p.font.size = Pt(layout_rec.font_sizes.get('recommendation', 16))
+                    p.font.bold = True
+                    p.font.color.rgb = self._hex_to_rgb(self._get_brand_color('primary'))
+                    
+                    # Details
+                    if 'details' in rec:
+                        p = text_frame.add_paragraph()
+                        p.text = rec['details']
+                        p.font.size = Pt(layout_rec.font_sizes.get('body', 12))
+                        p.font.color.rgb = RGBColor(51, 51, 51)
+                    
+                    # ROI if available
+                    if 'roi' in rec:
+                        p = text_frame.add_paragraph()
+                        p.text = f"Expected ROI: {rec['roi']}"
+                        p.font.size = Pt(layout_rec.font_sizes.get('body', 12))
+                        p.font.bold = True
+                        p.font.color.rgb = self._hex_to_rgb(self._get_brand_color('success', '#00A000'))
+        
+        # Add source attribution
+        if 'source_refs' in data:
+            self.add_source_attribution(slide, data['source_refs'])
         
         return slide

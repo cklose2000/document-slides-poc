@@ -5,11 +5,12 @@ This module analyzes content density and type to determine optimal slide layouts
 automatically adjusting spacing, font sizes, and element placement for maximum impact.
 """
 
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Union
 import re
 from dataclasses import dataclass
 from enum import Enum
 from collections import OrderedDict
+import math
 
 class ContentType(Enum):
     """Types of content for layout decisions"""
@@ -18,6 +19,12 @@ class ContentType(Enum):
     MIXED = "mixed"
     VISUAL = "visual"
     SUMMARY = "summary"
+    EXECUTIVE_SUMMARY = "executive_summary"
+    FINANCIAL_ANALYSIS = "financial_analysis"
+    MARKET_ANALYSIS = "market_analysis"
+    STRATEGY_ROADMAP = "strategy_roadmap"
+    RISK_ASSESSMENT = "risk_assessment"
+    INVESTMENT_THESIS = "investment_thesis"
 
 class LayoutComplexity(Enum):
     """Layout complexity levels"""
@@ -37,6 +44,18 @@ class ContentBlock:
     content: Any
 
 @dataclass
+class ContentDensityAnalysis:
+    """Advanced analysis of content density and complexity"""
+    text_density: float  # 0.0 to 1.0
+    data_density: float  # 0.0 to 1.0
+    visual_complexity: float  # 0.0 to 1.0
+    cognitive_load: float  # 0.0 to 1.0
+    readability_score: float  # 0.0 to 1.0
+    optimal_font_scale: float  # Scaling factor for fonts
+    recommended_columns: int  # 1, 2, or 3
+    recommended_sections: int  # Number of logical sections
+
+@dataclass
 class LayoutRecommendation:
     """Layout recommendation with specific parameters"""
     layout_type: str
@@ -47,6 +66,8 @@ class LayoutRecommendation:
     split_recommendation: bool
     reasoning: List[str]
     filtered_metrics: Optional[Dict[str, Any]] = None  # Prioritized metrics for display
+    density_analysis: Optional[ContentDensityAnalysis] = None  # Advanced density metrics
+    component_layout: Optional[Dict[str, Dict[str, float]]] = None  # Component-specific layouts
 
 class MetricsPrioritizer:
     """Prioritizes and filters metrics for optimal display"""
@@ -228,6 +249,42 @@ class SmartLayoutEngine:
                 'max_items': 20,
                 'font_sizes': {'title': 28, 'subtitle': 18, 'body': 10, 'metric': 20},
                 'spacing': {'title_margin': 0.8, 'content_margin': 0.4}
+            },
+            'executive_summary': {
+                'description': 'Executive summary with KPIs and highlights',
+                'max_items': 10,
+                'font_sizes': {'title': 32, 'subtitle': 20, 'body': 12, 'metric': 24, 'kpi_title': 10},
+                'spacing': {'title_margin': 1.0, 'content_margin': 0.6, 'kpi_spacing': 0.3}
+            },
+            'financial_analysis': {
+                'description': 'Financial analysis with charts and tables',
+                'max_items': 15,
+                'font_sizes': {'title': 28, 'subtitle': 18, 'body': 11, 'metric': 20, 'table': 10},
+                'spacing': {'title_margin': 0.9, 'content_margin': 0.5}
+            },
+            'market_positioning': {
+                'description': 'Market analysis with competitive matrix',
+                'max_items': 12,
+                'font_sizes': {'title': 30, 'subtitle': 20, 'body': 12, 'metric': 18, 'label': 10},
+                'spacing': {'title_margin': 1.0, 'content_margin': 0.7}
+            },
+            'timeline_roadmap': {
+                'description': 'Timeline visualization for strategy',
+                'max_items': 8,
+                'font_sizes': {'title': 32, 'subtitle': 18, 'body': 11, 'milestone': 10},
+                'spacing': {'title_margin': 1.0, 'content_margin': 0.8, 'timeline_height': 3.0}
+            },
+            'risk_matrix': {
+                'description': 'Risk assessment matrix layout',
+                'max_items': 12,
+                'font_sizes': {'title': 30, 'subtitle': 18, 'body': 11, 'risk_label': 9},
+                'spacing': {'title_margin': 1.0, 'content_margin': 0.6, 'matrix_size': 4.0}
+            },
+            'investment_thesis': {
+                'description': 'Investment thesis with recommendations',
+                'max_items': 10,
+                'font_sizes': {'title': 32, 'subtitle': 22, 'body': 13, 'recommendation': 16},
+                'spacing': {'title_margin': 1.2, 'content_margin': 0.8}
             }
         }
     
@@ -289,6 +346,78 @@ class SmartLayoutEngine:
                 ))
         
         return blocks
+    
+    def analyze_content_density(self, blocks: List[ContentBlock]) -> ContentDensityAnalysis:
+        """
+        Perform advanced content density analysis
+        
+        Args:
+            blocks: List of content blocks
+            
+        Returns:
+            ContentDensityAnalysis with detailed metrics
+        """
+        if not blocks:
+            return ContentDensityAnalysis(
+                text_density=0.0,
+                data_density=0.0,
+                visual_complexity=0.0,
+                cognitive_load=0.0,
+                readability_score=1.0,
+                optimal_font_scale=1.0,
+                recommended_columns=1,
+                recommended_sections=1
+            )
+        
+        # Calculate metrics
+        total_text = sum(block.text_length for block in blocks)
+        total_data_points = sum(block.data_points for block in blocks)
+        total_visual_elements = sum(block.visual_elements for block in blocks)
+        
+        # Text density (normalized to typical slide content ~200-500 chars)
+        text_density = min(total_text / 500, 1.0)
+        
+        # Data density (normalized to typical 5-10 data points)
+        data_density = min(total_data_points / 10, 1.0)
+        
+        # Visual complexity (based on number and type of visual elements)
+        visual_complexity = min(total_visual_elements / 3, 1.0)
+        
+        # Cognitive load (combination of all factors)
+        cognitive_load = (text_density * 0.3 + data_density * 0.4 + visual_complexity * 0.3)
+        
+        # Readability score (inverse of complexity)
+        readability_score = max(0.2, 1.0 - cognitive_load)
+        
+        # Optimal font scale (reduce for dense content)
+        if cognitive_load > 0.8:
+            optimal_font_scale = 0.8
+        elif cognitive_load > 0.6:
+            optimal_font_scale = 0.9
+        else:
+            optimal_font_scale = 1.0
+        
+        # Recommended columns
+        if total_data_points >= 8 or (text_density > 0.7 and data_density > 0.5):
+            recommended_columns = 2
+        elif total_data_points >= 12:
+            recommended_columns = 3
+        else:
+            recommended_columns = 1
+        
+        # Recommended sections
+        recommended_sections = min(len(blocks), 4)
+        
+        return ContentDensityAnalysis(
+            text_density=text_density,
+            data_density=data_density,
+            visual_complexity=visual_complexity,
+            cognitive_load=cognitive_load,
+            readability_score=readability_score,
+            optimal_font_scale=optimal_font_scale,
+            recommended_columns=recommended_columns,
+            recommended_sections=recommended_sections
+        )
     
     def determine_content_type(self, blocks: List[ContentBlock]) -> ContentType:
         """
@@ -352,12 +481,13 @@ class SmartLayoutEngine:
         else:
             return LayoutComplexity.DENSE
     
-    def recommend_layout(self, content_data: Dict[str, Any]) -> LayoutRecommendation:
+    def recommend_layout(self, content_data: Dict[str, Any], slide_type: Optional[str] = None) -> LayoutRecommendation:
         """
         Recommend optimal layout based on content analysis
         
         Args:
             content_data: Content from slide generation
+            slide_type: Optional specific slide type to optimize for
             
         Returns:
             Layout recommendation with specific parameters
@@ -376,11 +506,20 @@ class SmartLayoutEngine:
             filtered_metrics = None
         
         blocks = self.analyze_content_blocks(filtered_content_data)
-        content_type = self.determine_content_type(blocks)
+        
+        # Perform density analysis
+        density_analysis = self.analyze_content_density(blocks)
+        
+        # Determine content type (can be overridden by slide_type)
+        if slide_type:
+            content_type = self._map_slide_type_to_content_type(slide_type)
+        else:
+            content_type = self.determine_content_type(blocks)
+        
         complexity = self.calculate_layout_complexity(blocks)
         
         # Select base layout template
-        layout_type = self._select_layout_template(content_type, complexity)
+        layout_type = self._select_layout_template(content_type, complexity, slide_type)
         base_template = self.layout_templates[layout_type]
         
         print(f"DEBUG Layout Engine: Content type = {content_type}, Complexity = {complexity}")
@@ -392,20 +531,88 @@ class SmartLayoutEngine:
         
         # Customize based on content analysis
         recommendation = self._customize_layout(
-            base_template, content_type, complexity, blocks
+            base_template, content_type, complexity, blocks, density_analysis
         )
         
-        # Add filtered metrics to recommendation
+        # Add filtered metrics and density analysis to recommendation
         recommendation.filtered_metrics = filtered_metrics
+        recommendation.density_analysis = density_analysis
+        
+        # Add component-specific layouts for professional slides
+        if slide_type:
+            recommendation.component_layout = self._generate_component_layout(slide_type, density_analysis)
         
         # Add reasoning
-        reasoning = self._generate_layout_reasoning(content_type, complexity, blocks)
+        reasoning = self._generate_layout_reasoning(content_type, complexity, blocks, density_analysis)
         recommendation.reasoning = reasoning
         
         return recommendation
     
-    def _select_layout_template(self, content_type: ContentType, complexity: LayoutComplexity) -> str:
+    def _map_slide_type_to_content_type(self, slide_type: str) -> ContentType:
+        """Map slide type string to ContentType enum"""
+        mapping = {
+            'executive_summary': ContentType.EXECUTIVE_SUMMARY,
+            'financial_analysis': ContentType.FINANCIAL_ANALYSIS,
+            'market_analysis': ContentType.MARKET_ANALYSIS,
+            'growth_strategy': ContentType.STRATEGY_ROADMAP,
+            'risk_assessment': ContentType.RISK_ASSESSMENT,
+            'investment_thesis': ContentType.INVESTMENT_THESIS
+        }
+        return mapping.get(slide_type, ContentType.MIXED)
+    
+    def _generate_component_layout(self, slide_type: str, density_analysis: ContentDensityAnalysis) -> Dict[str, Dict[str, float]]:
+        """Generate component-specific layouts for professional slide types"""
+        layouts = {
+            'executive_summary': {
+                'kpi_area': {'left': 0.5, 'top': 1.5, 'width': 9.0, 'height': 2.0},
+                'highlights_area': {'left': 0.5, 'top': 4.0, 'width': 9.0, 'height': 2.5}
+            },
+            'financial_analysis': {
+                'metrics_area': {'left': 0.5, 'top': 1.5, 'width': 4.0, 'height': 2.5},
+                'chart_area': {'left': 4.8, 'top': 1.5, 'width': 4.7, 'height': 2.5},
+                'variance_area': {'left': 0.5, 'top': 4.3, 'width': 9.0, 'height': 2.2}
+            },
+            'market_analysis': {
+                'market_share_area': {'left': 0.5, 'top': 1.5, 'width': 4.5, 'height': 2.5},
+                'positioning_matrix': {'left': 5.2, 'top': 1.5, 'width': 4.3, 'height': 4.5}
+            },
+            'growth_strategy': {
+                'timeline_area': {'left': 0.5, 'top': 1.5, 'width': 9.0, 'height': 3.0},
+                'initiatives_area': {'left': 0.5, 'top': 5.0, 'width': 9.0, 'height': 1.5}
+            },
+            'risk_assessment': {
+                'matrix_area': {'left': 0.5, 'top': 1.5, 'width': 4.5, 'height': 4.5},
+                'mitigation_area': {'left': 5.3, 'top': 1.5, 'width': 4.2, 'height': 4.5}
+            },
+            'investment_thesis': {
+                'thesis_area': {'left': 0.5, 'top': 1.5, 'width': 9.0, 'height': 2.0},
+                'recommendations_area': {'left': 0.5, 'top': 3.8, 'width': 9.0, 'height': 2.7}
+            }
+        }
+        
+        # Adjust based on density
+        if density_analysis.cognitive_load > 0.7:
+            # Reduce spacing for dense content
+            for area in layouts.get(slide_type, {}).values():
+                area['height'] *= 0.9
+        
+        return layouts.get(slide_type, {})
+    
+    def _select_layout_template(self, content_type: ContentType, complexity: LayoutComplexity, slide_type: Optional[str] = None) -> str:
         """Select the base layout template"""
+        # Direct mapping for professional slide types
+        if slide_type:
+            template_mapping = {
+                'executive_summary': 'executive_summary',
+                'financial_analysis': 'financial_analysis',
+                'market_analysis': 'market_positioning',
+                'growth_strategy': 'timeline_roadmap',
+                'risk_assessment': 'risk_matrix',
+                'investment_thesis': 'investment_thesis'
+            }
+            if slide_type in template_mapping:
+                return template_mapping[slide_type]
+        
         # Layout selection matrix
         layout_matrix = {
             (ContentType.SUMMARY, LayoutComplexity.SIMPLE): 'title_only',
@@ -436,7 +643,7 @@ class SmartLayoutEngine:
     
     def _customize_layout(self, base_template: Dict[str, Any], 
                          content_type: ContentType, complexity: LayoutComplexity,
-                         blocks: List[ContentBlock]) -> LayoutRecommendation:
+                         blocks: List[ContentBlock], density_analysis: ContentDensityAnalysis) -> LayoutRecommendation:
         """Customize the base template based on specific content"""
         
         # Start with base template
@@ -444,12 +651,17 @@ class SmartLayoutEngine:
         spacing = base_template['spacing'].copy()
         max_items = base_template['max_items']
         
-        # Adjust based on content density
+        # Adjust based on density analysis
         total_items = sum(block.data_points for block in blocks)
-        if total_items > max_items:
-            # Reduce font sizes for dense content
-            font_sizes = {k: max(int(v * 0.9), 8) for k, v in font_sizes.items()}
+        
+        # Apply font scaling from density analysis
+        font_sizes = {k: max(int(v * density_analysis.optimal_font_scale), 8) for k, v in font_sizes.items()}
+        
+        # Adjust spacing based on cognitive load
+        if density_analysis.cognitive_load > 0.7:
             spacing = {k: v * 0.8 for k, v in spacing.items()}
+        elif density_analysis.cognitive_load < 0.3:
+            spacing = {k: v * 1.2 for k, v in spacing.items()}
         
         # Adjust based on content type
         if content_type == ContentType.DATA_HEAVY:
@@ -514,7 +726,8 @@ class SmartLayoutEngine:
     
     def _generate_layout_reasoning(self, content_type: ContentType, 
                                  complexity: LayoutComplexity,
-                                 blocks: List[ContentBlock]) -> List[str]:
+                                 blocks: List[ContentBlock],
+                                 density_analysis: ContentDensityAnalysis) -> List[str]:
         """Generate human-readable reasoning for layout decisions"""
         reasoning = []
         
@@ -540,6 +753,16 @@ class SmartLayoutEngine:
         visual_elements = sum(block.visual_elements for block in blocks)
         if visual_elements >= 1:
             reasoning.append("Chart integration recommended for visual impact")
+        
+        # Density analysis reasoning
+        if density_analysis.cognitive_load > 0.7:
+            reasoning.append(f"High cognitive load ({density_analysis.cognitive_load:.1%}) - optimized for clarity")
+        
+        if density_analysis.optimal_font_scale < 1.0:
+            reasoning.append(f"Font sizes reduced to {int(density_analysis.optimal_font_scale * 100)}% for better fit")
+        
+        if density_analysis.recommended_columns > 1:
+            reasoning.append(f"{density_analysis.recommended_columns}-column layout for better organization")
         
         return reasoning
     
@@ -587,6 +810,71 @@ class SmartLayoutEngine:
                 split_content[0][key] = value
         
         return True, split_content if split_content else [content_data]
+    
+    def recommend_professional_slide_layout(self, slide_type: str, data: Dict[str, Any]) -> LayoutRecommendation:
+        """
+        Recommend layout for specific professional slide types
+        
+        Args:
+            slide_type: Type of professional slide (executive_summary, financial_analysis, etc.)
+            data: Slide-specific data structure
+            
+        Returns:
+            LayoutRecommendation with optimized parameters
+        """
+        # Map data to standard content_data format
+        content_data = self._map_professional_data(slide_type, data)
+        
+        # Get recommendation with slide type hint
+        recommendation = self.recommend_layout(content_data, slide_type=slide_type)
+        
+        return recommendation
+    
+    def _map_professional_data(self, slide_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Map professional slide data to standard format for analysis"""
+        content_data = {}
+        
+        if slide_type == 'executive_summary':
+            if 'key_metrics' in data:
+                content_data['financial_metrics'] = data['key_metrics']
+            if 'highlights' in data:
+                content_data['key_insights'] = data['highlights']
+                
+        elif slide_type == 'financial_analysis':
+            if 'financial_data' in data:
+                content_data['financial_metrics'] = data['financial_data']
+            if 'variance_data' in data:
+                content_data['variance_analysis'] = data['variance_data']
+                
+        elif slide_type == 'market_analysis':
+            if 'market_data' in data:
+                content_data['market_metrics'] = data['market_data']
+            if 'competitors' in data:
+                content_data['competitive_data'] = data['competitors']
+                
+        elif slide_type == 'growth_strategy':
+            if 'initiatives' in data:
+                content_data['strategic_initiatives'] = data['initiatives']
+            if 'timeline_data' in data:
+                content_data['timeline'] = data['timeline_data']
+                
+        elif slide_type == 'risk_assessment':
+            if 'risks' in data:
+                content_data['risk_data'] = data['risks']
+            if 'mitigations' in data:
+                content_data['mitigation_strategies'] = data['mitigations']
+                
+        elif slide_type == 'investment_thesis':
+            if 'thesis_points' in data:
+                content_data['key_insights'] = data['thesis_points']
+            if 'recommendations' in data:
+                content_data['recommendations'] = data['recommendations']
+        
+        # Add common fields
+        if 'company_name' in data:
+            content_data['company_overview'] = {'name': data['company_name']}
+        
+        return content_data
 
 # Example usage and testing
 if __name__ == "__main__":
