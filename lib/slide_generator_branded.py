@@ -165,7 +165,7 @@ class BrandedSlideGenerator:
     
     def _add_branded_metrics_table(self, slide: Any, metrics_data: Dict[str, Any], 
                                  left: float, top: float):
-        """Add metrics table with brand styling"""
+        """Add metrics table with brand styling and superscript citations"""
         if not metrics_data:
             return
         
@@ -189,6 +189,10 @@ class BrandedSlideGenerator:
             cell.text = header
             self._style_branded_header_cell(cell)
         
+        # Track citations for footnotes
+        citation_map = {}
+        citation_counter = 1
+        
         # Add data rows
         row_idx = 1
         for metric_name, metric_info in metrics_data.items():
@@ -200,25 +204,86 @@ class BrandedSlideGenerator:
             metric_cell.text = str(metric_name)
             self._apply_cell_font_style(metric_cell)
             
-            # Value with clickable source link
+            # Value with superscript citation
             value = metric_info.get('value', 'N/A')
             formatted_value = self._format_financial_value(value)
             value_cell = table.cell(row_idx, 1)
             
-            # Add clickable hyperlink if data point ID is available
+            # Get confidence level if available
+            confidence = 1.0
             data_point_id = metric_info.get('data_point_id')
             if self.source_tracker and data_point_id:
-                self._add_clickable_value(value_cell, formatted_value, data_point_id)
-            else:
-                value_cell.text = formatted_value
-                self._apply_cell_font_style(value_cell)
+                data_point = self.source_tracker.data_points.get(data_point_id)
+                if data_point:
+                    confidence = data_point.confidence
             
-            # Source with enhanced attribution
+            # Add value with superscript citation
+            value_cell.text = ""
+            paragraph = value_cell.text_frame.paragraphs[0]
+            
+            # Add clickable value if available
+            if self.source_tracker and data_point_id:
+                hyperlink_url = self.source_tracker.get_source_hyperlink(data_point_id, formatted_value)
+                run = paragraph.add_run()
+                run.text = formatted_value
+                try:
+                    run.hyperlink.address = hyperlink_url
+                    run.font.color.rgb = self._get_brand_color('accent1', '#0066CC')
+                    run.font.underline = True
+                except:
+                    pass
+                run.font.size = Pt(12)
+                run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            else:
+                run = paragraph.add_run()
+                run.text = formatted_value
+                run.font.size = Pt(12)
+                run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            
+            # Add superscript citation
+            citation_run = paragraph.add_run()
+            citation_run.text = f"[{citation_counter}]"
+            citation_run.font.size = Pt(8)
+            citation_run.font.superscript = True
+            citation_run.font.color.rgb = self._get_confidence_color(confidence)
+            
+            # Store citation info
+            citation_map[citation_counter] = {
+                'metric': metric_name,
+                'confidence': confidence,
+                'data_point_id': data_point_id
+            }
+            
+            # Source with enhanced attribution and confidence
             source_cell = table.cell(row_idx, 2)
             if self.source_tracker and data_point_id:
-                # Use enhanced source attribution
+                # Use enhanced source attribution with confidence
                 source_text = self.source_tracker.get_source_attribution_text(data_point_id, 'minimal')
-                self._add_clickable_source(source_cell, source_text, data_point_id)
+                formatted_source, confidence_text = self._format_source_with_confidence(source_text, confidence)
+                
+                # Clear cell and add formatted text
+                source_cell.text = ""
+                paragraph = source_cell.text_frame.paragraphs[0]
+                
+                # Add clickable source
+                run = paragraph.add_run()
+                run.text = formatted_source
+                try:
+                    hyperlink_url = self.source_tracker.get_source_hyperlink(data_point_id, formatted_source)
+                    run.hyperlink.address = hyperlink_url
+                    run.font.color.rgb = self._get_brand_color('secondary', '#666666')
+                    run.font.italic = True
+                except:
+                    pass
+                run.font.size = Pt(10)
+                run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+                
+                # Add confidence indicator
+                conf_run = paragraph.add_run()
+                conf_run.text = f" {confidence_text}"
+                conf_run.font.size = Pt(10)
+                conf_run.font.color.rgb = self._get_confidence_color(confidence)
+                conf_run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
             else:
                 # Fallback to basic cell reference
                 cell_ref = metric_info.get('cell', 'Unknown')
@@ -226,7 +291,11 @@ class BrandedSlideGenerator:
                 source_cell.text = source_text
                 self._apply_cell_font_style(source_cell, size='small')
             
+            citation_counter += 1
             row_idx += 1
+        
+        # Store citations for later use in footnotes
+        self._last_citations = citation_map
     
     def _add_branded_company_info(self, slide: Any, company_data: Dict[str, Any],
                                 left: float, top: float):
@@ -361,52 +430,358 @@ class BrandedSlideGenerator:
             return str(value)
     
     def add_source_attribution(self, slide: Any, source_refs: Dict[str, Any]):
-        """Add enhanced source attribution with clickable links and brand styling"""
+        """Add enhanced source attribution bar with icons, metadata, and brand styling"""
         if not source_refs:
             return
         
-        # Add attribution text box at bottom
+        # Create attribution bar background
+        bar_shape = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(0), Inches(6.8),
+            Inches(10), Inches(0.7)
+        )
+        
+        # Style the bar with subtle gradient
+        bar_shape.fill.solid()
+        bar_shape.fill.fore_color.rgb = RGBColor(240, 240, 240)  # Light gray background
+        bar_shape.line.fill.background()  # No border
+        
+        # Add attribution content
         attr_shape = slide.shapes.add_textbox(
-            Inches(0.5), Inches(6.5), Inches(9), Inches(1)
+            Inches(0.3), Inches(6.85), Inches(9.4), Inches(0.6)
         )
         attr_frame = attr_shape.text_frame
+        attr_frame.margin_left = 0
+        attr_frame.margin_right = 0
+        attr_frame.margin_top = Inches(0.05)
+        attr_frame.margin_bottom = 0
         
-        # Enhanced attribution with source tracker integration
+        # Build enhanced attribution with metadata
         if self.source_tracker and isinstance(source_refs, dict):
-            # Check if source_refs contains data point IDs
+            # Collect statistics
             data_point_ids = []
+            doc_types = {'excel': 0, 'pdf': 0, 'word': 0}
+            total_confidence = 0
+            
             for source, details in source_refs.items():
                 if isinstance(details, dict) and 'data_point_id' in details:
-                    data_point_ids.append(details['data_point_id'])
+                    dp_id = details['data_point_id']
+                    data_point_ids.append(dp_id)
+                    
+                    # Get data point info
+                    if dp_id in self.source_tracker.data_points:
+                        dp = self.source_tracker.data_points[dp_id]
+                        total_confidence += dp.confidence
+                        doc_types[dp.primary_source.document_type] += 1
             
-            if data_point_ids:
-                # Use enhanced source attribution for tracked data points
-                attr_lines = []
-                for dp_id in data_point_ids[:3]:  # Limit to 3 sources for space
-                    source_text = self.source_tracker.get_source_attribution_text(dp_id, 'minimal')
-                    attr_lines.append(source_text)
-                
-                attr_text = " | ".join(attr_lines)
-                if len(data_point_ids) > 3:
-                    attr_text += f" (+{len(data_point_ids) - 3} more)"
-            else:
-                # Fallback to original method
-                attr_text = self._build_fallback_attribution(source_refs)
-        else:
-            # Fallback to original method
-            attr_text = self._build_fallback_attribution(source_refs)
-        
-        attr_frame.text = attr_text
-        
-        # Style attribution text
-        for paragraph in attr_frame.paragraphs:
-            paragraph.alignment = PP_ALIGN.CENTER
-            for run in paragraph.runs:
-                run.font.size = Pt(8)
+            # Build attribution text with icons
+            paragraph = attr_frame.paragraphs[0]
+            
+            # Add document icons and counts
+            if doc_types['excel'] > 0:
+                run = paragraph.add_run()
+                run.text = "📊 "
+                run.font.size = Pt(10)
+                run = paragraph.add_run()
+                run.text = f"Excel ({doc_types['excel']}) "
+                run.font.size = Pt(9)
                 run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
-                # Use secondary brand color for attribution
-                color = self._get_brand_color('secondary', '#808080')
-                run.font.color.rgb = self._hex_to_rgb(color)
+                run.font.color.rgb = RGBColor(100, 100, 100)
+            
+            if doc_types['pdf'] > 0:
+                if doc_types['excel'] > 0:
+                    run = paragraph.add_run()
+                    run.text = " | "
+                    run.font.size = Pt(9)
+                    run.font.color.rgb = RGBColor(180, 180, 180)
+                run = paragraph.add_run()
+                run.text = "📄 "
+                run.font.size = Pt(10)
+                run = paragraph.add_run()
+                run.text = f"PDF ({doc_types['pdf']}) "
+                run.font.size = Pt(9)
+                run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+                run.font.color.rgb = RGBColor(100, 100, 100)
+            
+            if doc_types['word'] > 0:
+                if doc_types['excel'] > 0 or doc_types['pdf'] > 0:
+                    run = paragraph.add_run()
+                    run.text = " | "
+                    run.font.size = Pt(9)
+                    run.font.color.rgb = RGBColor(180, 180, 180)
+                run = paragraph.add_run()
+                run.text = "📝 "
+                run.font.size = Pt(10)
+                run = paragraph.add_run()
+                run.text = f"Word ({doc_types['word']}) "
+                run.font.size = Pt(9)
+                run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+                run.font.color.rgb = RGBColor(100, 100, 100)
+            
+            # Add separator
+            run = paragraph.add_run()
+            run.text = "  •  "
+            run.font.size = Pt(9)
+            run.font.color.rgb = RGBColor(180, 180, 180)
+            
+            # Add extraction metadata
+            run = paragraph.add_run()
+            run.text = f"Extracted from {len(set(source_refs.keys()))} document{'s' if len(source_refs) > 1 else ''} | "
+            run.font.size = Pt(9)
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            run.font.color.rgb = RGBColor(100, 100, 100)
+            
+            # Add data points count
+            run = paragraph.add_run()
+            run.text = f"{len(data_point_ids)} data point{'s' if len(data_point_ids) > 1 else ''} | "
+            run.font.size = Pt(9)
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            run.font.color.rgb = RGBColor(100, 100, 100)
+            
+            # Add average confidence
+            if data_point_ids:
+                avg_confidence = total_confidence / len(data_point_ids)
+                run = paragraph.add_run()
+                run.text = f"{int(avg_confidence * 100)}% avg confidence"
+                run.font.size = Pt(9)
+                run.font.bold = True
+                run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+                run.font.color.rgb = self._get_confidence_color(avg_confidence)
+            
+            # Add "View Source Details >" link on the right
+            run = paragraph.add_run()
+            run.text = "    View Source Details >"
+            run.font.size = Pt(9)
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            run.font.color.rgb = self._get_brand_color('accent1', '#0066CC')
+            run.font.underline = True
+            
+            # Add citation footnotes if available
+            if hasattr(self, '_last_citations') and self._last_citations:
+                self._add_citation_footnotes(slide, self._last_citations)
+        else:
+            # Fallback to simple attribution
+            attr_text = self._build_fallback_attribution(source_refs)
+            attr_frame.text = attr_text
+            
+            # Style attribution text
+            for paragraph in attr_frame.paragraphs:
+                paragraph.alignment = PP_ALIGN.CENTER
+                for run in paragraph.runs:
+                    run.font.size = Pt(9)
+                    run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+                    run.font.color.rgb = RGBColor(100, 100, 100)
+    
+    def create_source_summary_slide(self, source_refs: Dict[str, Any]) -> Any:
+        """Create a comprehensive source summary slide with statistics and confidence visualization"""
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Add title
+        title_shape = self._add_branded_title(slide, "Data Sources & Methodology")
+        
+        if not self.source_tracker:
+            # Fallback if no source tracker
+            info_shape = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
+            info_shape.text_frame.text = "Source tracking not available"
+            return slide
+        
+        # Collect comprehensive statistics
+        stats = self._collect_source_statistics(source_refs)
+        
+        # Left side: Document list and extraction stats
+        self._add_document_summary(slide, stats, Inches(0.5), Inches(1.8))
+        
+        # Right side: Confidence distribution chart
+        self._add_confidence_chart(slide, stats, Inches(5.5), Inches(1.8))
+        
+        # Bottom: Processing methodology
+        self._add_methodology_section(slide, stats, Inches(0.5), Inches(5.2))
+        
+        return slide
+    
+    def _collect_source_statistics(self, source_refs: Dict[str, Any]) -> Dict[str, Any]:
+        """Collect comprehensive statistics about sources"""
+        stats = {
+            'documents': {},
+            'total_data_points': 0,
+            'confidence_distribution': {'high': 0, 'medium': 0, 'low': 0, 'very_low': 0},
+            'doc_types': {'excel': 0, 'pdf': 0, 'word': 0},
+            'extraction_methods': {},
+            'data_point_ids': []
+        }
+        
+        # Collect data point information
+        for source, details in source_refs.items():
+            if isinstance(details, dict) and 'data_point_id' in details:
+                dp_id = details['data_point_id']
+                stats['data_point_ids'].append(dp_id)
+                
+                if dp_id in self.source_tracker.data_points:
+                    dp = self.source_tracker.data_points[dp_id]
+                    stats['total_data_points'] += 1
+                    
+                    # Document info
+                    doc_name = dp.primary_source.document_name
+                    if doc_name not in stats['documents']:
+                        stats['documents'][doc_name] = {
+                            'type': dp.primary_source.document_type,
+                            'data_points': 0,
+                            'pages_or_sheets': set(),
+                            'avg_confidence': 0,
+                            'total_confidence': 0
+                        }
+                    
+                    stats['documents'][doc_name]['data_points'] += 1
+                    stats['documents'][doc_name]['total_confidence'] += dp.confidence
+                    
+                    if dp.primary_source.page_or_sheet:
+                        stats['documents'][doc_name]['pages_or_sheets'].add(dp.primary_source.page_or_sheet)
+                    
+                    # Document type counts
+                    stats['doc_types'][dp.primary_source.document_type] += 1
+                    
+                    # Confidence distribution
+                    if dp.confidence >= 0.9:
+                        stats['confidence_distribution']['high'] += 1
+                    elif dp.confidence >= 0.7:
+                        stats['confidence_distribution']['medium'] += 1
+                    elif dp.confidence >= 0.5:
+                        stats['confidence_distribution']['low'] += 1
+                    else:
+                        stats['confidence_distribution']['very_low'] += 1
+                    
+                    # Extraction method
+                    method = dp.primary_source.extraction_method or 'Standard'
+                    stats['extraction_methods'][method] = stats['extraction_methods'].get(method, 0) + 1
+        
+        # Calculate averages
+        for doc_info in stats['documents'].values():
+            if doc_info['data_points'] > 0:
+                doc_info['avg_confidence'] = doc_info['total_confidence'] / doc_info['data_points']
+        
+        return stats
+    
+    def _add_document_summary(self, slide: Any, stats: Dict[str, Any], left: float, top: float):
+        """Add document summary section to source slide"""
+        # Create container
+        summary_shape = slide.shapes.add_textbox(left, top, Inches(4.5), Inches(3))
+        summary_frame = summary_shape.text_frame
+        
+        # Add section title
+        p = summary_frame.paragraphs[0]
+        p.text = "Processed Documents"
+        self._apply_font_style(p, 'heading', size='medium')
+        p.space_after = Pt(12)
+        
+        # Add document list
+        for doc_name, doc_info in stats['documents'].items():
+            p = summary_frame.add_paragraph()
+            
+            # Document icon
+            icon = {'excel': '📊', 'pdf': '📄', 'word': '📝'}.get(doc_info['type'], '📄')
+            run = p.add_run()
+            run.text = f"{icon} "
+            run.font.size = Pt(12)
+            
+            # Document name
+            run = p.add_run()
+            run.text = doc_name
+            run.font.size = Pt(11)
+            run.font.bold = True
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            
+            p.space_after = Pt(4)
+            
+            # Document stats
+            p = summary_frame.add_paragraph()
+            p.left_indent = Inches(0.3)
+            run = p.add_run()
+            pages_sheets = len(doc_info['pages_or_sheets'])
+            run.text = f"• {doc_info['data_points']} data points from {pages_sheets} {'sheets' if doc_info['type'] == 'excel' else 'pages'}"
+            run.font.size = Pt(10)
+            run.font.color.rgb = RGBColor(100, 100, 100)
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            
+            # Confidence indicator
+            run = p.add_run()
+            run.text = f" • {int(doc_info['avg_confidence'] * 100)}% avg confidence"
+            run.font.size = Pt(10)
+            run.font.color.rgb = self._get_confidence_color(doc_info['avg_confidence'])
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            
+            p.space_after = Pt(8)
+        
+        # Add totals
+        p = summary_frame.add_paragraph()
+        p.space_before = Pt(12)
+        run = p.add_run()
+        run.text = f"Total: {stats['total_data_points']} data points from {len(stats['documents'])} documents"
+        run.font.size = Pt(10)
+        run.font.bold = True
+        run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+    
+    def _add_confidence_chart(self, slide: Any, stats: Dict[str, Any], left: float, top: float):
+        """Add confidence distribution chart"""
+        # Create pie chart data
+        conf_dist = stats['confidence_distribution']
+        data = {
+            'High (≥90%)': conf_dist['high'],
+            'Medium (70-89%)': conf_dist['medium'],
+            'Low (50-69%)': conf_dist['low'],
+            'Very Low (<50%)': conf_dist['very_low']
+        }
+        
+        # Filter out zero values
+        data = {k: v for k, v in data.items() if v > 0}
+        
+        if data:
+            # Generate pie chart
+            chart_options = {
+                'title': 'Confidence Distribution',
+                'colors': ['#00FF00', '#FFA500', '#FF8C00', '#FF0000'],
+                'figsize': (4, 3.5)
+            }
+            
+            chart_buffer = self.chart_generator.create_pie_chart(data, **chart_options)
+            
+            if chart_buffer:
+                # Add chart to slide
+                slide.shapes.add_picture(chart_buffer, left, top, width=Inches(4))
+    
+    def _add_methodology_section(self, slide: Any, stats: Dict[str, Any], left: float, top: float):
+        """Add methodology section"""
+        method_shape = slide.shapes.add_textbox(left, top, Inches(9), Inches(1.3))
+        method_frame = method_shape.text_frame
+        
+        # Title
+        p = method_frame.paragraphs[0]
+        p.text = "Extraction Methodology"
+        self._apply_font_style(p, 'heading', size='small')
+        p.space_after = Pt(8)
+        
+        # Methods used
+        p = method_frame.add_paragraph()
+        methods_text = []
+        for method, count in stats['extraction_methods'].items():
+            methods_text.append(f"{method} ({count})")
+        
+        run = p.add_run()
+        run.text = f"Methods used: {', '.join(methods_text)}"
+        run.font.size = Pt(10)
+        run.font.color.rgb = RGBColor(100, 100, 100)
+        run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+        
+        # Quality notes
+        if stats['confidence_distribution']['low'] > 0 or stats['confidence_distribution']['very_low'] > 0:
+            p = method_frame.add_paragraph()
+            run = p.add_run()
+            low_conf_count = stats['confidence_distribution']['low'] + stats['confidence_distribution']['very_low']
+            run.text = f"⚠ {low_conf_count} data points have low confidence and may require manual verification"
+            run.font.size = Pt(10)
+            run.font.color.rgb = RGBColor(255, 140, 0)
+            run.font.italic = True
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
     
     def create_title_slide(self, title: str, subtitle: str = None) -> Any:
         """Create a branded title slide"""
@@ -533,6 +908,93 @@ class BrandedSlideGenerator:
             return "Sources: " + ", ".join(str(ref) for ref in source_refs)
         else:
             return f"Source: {source_refs}"
+    
+    def _get_confidence_color(self, confidence: float) -> RGBColor:
+        """Get color based on confidence level"""
+        if confidence >= 0.9:
+            return RGBColor(0, 128, 0)  # Green for high confidence
+        elif confidence >= 0.7:
+            return RGBColor(255, 165, 0)  # Orange for medium confidence
+        elif confidence >= 0.5:
+            return RGBColor(255, 140, 0)  # Dark orange for low confidence
+        else:
+            return RGBColor(255, 0, 0)  # Red for very low confidence
+    
+    def _add_superscript_citation(self, paragraph: Any, text: str, citation_num: int, 
+                                confidence: Optional[float] = None):
+        """Add text with superscript citation number"""
+        # Add main text
+        run = paragraph.add_run()
+        run.text = text
+        
+        # Add superscript citation
+        citation_run = paragraph.add_run()
+        citation_run.text = f"[{citation_num}]"
+        citation_run.font.size = Pt(8)
+        citation_run.font.superscript = True
+        
+        # Color-code based on confidence if provided
+        if confidence is not None:
+            citation_run.font.color.rgb = self._get_confidence_color(confidence)
+        else:
+            citation_run.font.color.rgb = self._get_brand_color('secondary', '#666666')
+    
+    def _format_source_with_confidence(self, source_text: str, confidence: float) -> Tuple[str, str]:
+        """Format source text with confidence indicator"""
+        # Add confidence checkmarks
+        if confidence >= 0.9:
+            confidence_indicator = "✓✓✓"
+        elif confidence >= 0.7:
+            confidence_indicator = "✓✓"
+        elif confidence >= 0.5:
+            confidence_indicator = "✓"
+        else:
+            confidence_indicator = "⚠"
+        
+        # Format confidence percentage
+        confidence_pct = f"{int(confidence * 100)}%"
+        
+        return source_text, f"{confidence_indicator} {confidence_pct}"
+    
+    def _add_citation_footnotes(self, slide: Any, citations: Dict[int, Dict[str, Any]]):
+        """Add citation footnotes at the bottom of the slide"""
+        if not citations:
+            return
+        
+        # Add footnotes text box
+        footnote_shape = slide.shapes.add_textbox(
+            Inches(0.5), Inches(6.3), Inches(9), Inches(0.5)
+        )
+        footnote_frame = footnote_shape.text_frame
+        footnote_frame.margin_top = 0
+        footnote_frame.margin_bottom = 0
+        
+        paragraph = footnote_frame.paragraphs[0]
+        
+        # Add each citation
+        for citation_num, citation_info in citations.items():
+            if citation_num > 1:
+                run = paragraph.add_run()
+                run.text = "  "
+            
+            # Citation number
+            run = paragraph.add_run()
+            run.text = f"[{citation_num}]"
+            run.font.size = Pt(7)
+            run.font.color.rgb = self._get_confidence_color(citation_info['confidence'])
+            run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
+            
+            # Source details
+            if self.source_tracker and citation_info.get('data_point_id'):
+                source_text = self.source_tracker.get_source_attribution_text(
+                    citation_info['data_point_id'], 'minimal'
+                )
+                run = paragraph.add_run()
+                run.text = f" {source_text}"
+                run.font.size = Pt(7)
+                run.font.color.rgb = RGBColor(120, 120, 120)
+                run.font.italic = True
+                run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
     
     def add_source_confidence_indicator(self, slide: Any, data_point_ids: List[str]):
         """Add visual indicators for source confidence levels"""

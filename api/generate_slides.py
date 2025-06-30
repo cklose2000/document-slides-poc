@@ -29,10 +29,7 @@ UPLOAD_FOLDER = tempfile.gettempdir()
 llm_whisperer_key = os.getenv('LLMWHISPERER_API_KEY')
 openai_key = os.getenv('OPENAI_API_KEY')
 
-# Initialize PDF extractor with API key
-pdf_extractor = PDFExtractor(llm_whisperer_key) if llm_whisperer_key else None
-excel_extractor = ExcelExtractor()
-word_extractor = WordExtractor()
+# Note: Extractors will be initialized with source tracker in generate_slides function
 
 @app.route('/api/generate-slides', methods=['POST'])
 def generate_slides():
@@ -45,6 +42,15 @@ def generate_slides():
         
         if not uploaded_files or all(file.filename == '' for file in uploaded_files):
             return jsonify({'error': 'No files uploaded'}), 400
+        
+        # Initialize source tracker for enhanced attribution
+        from lib.source_tracker import SourceTracker
+        source_tracker = SourceTracker()
+        
+        # Initialize extractors with source tracker
+        pdf_extractor = PDFExtractor(llm_whisperer_key, source_tracker) if llm_whisperer_key else None
+        excel_extractor = ExcelExtractor(source_tracker)
+        word_extractor = WordExtractor(source_tracker)
         
         # 1. Extract content from each document
         all_documents = []
@@ -228,9 +234,8 @@ def generate_slides():
                 from lib.slide_generator_branded import BrandedSlideGenerator
                 from lib.source_tracker import SourceTracker
                 
-                # Initialize brand manager and source tracker
+                # Initialize brand manager (reuse existing source tracker)
                 brand_manager = BrandManager()
-                source_tracker = SourceTracker()
                 
                 # Create branded slide generator
                 generator = BrandedSlideGenerator(
@@ -257,6 +262,16 @@ def generate_slides():
             subtitle="Financial Analysis & Performance Review"
         )
         slides_created.append("Title Slide")
+        
+        # Source summary slide (if using branded generator with source tracker)
+        if hasattr(generator, 'create_source_summary_slide') and hasattr(generator, 'source_tracker'):
+            try:
+                source_summary_slide = generator.create_source_summary_slide(
+                    analysis.get('source_attributions', {})
+                )
+                slides_created.append("Data Sources & Methodology")
+            except Exception as e:
+                print(f"Failed to create source summary slide: {str(e)}")
         
         # Financial summary slide(s)
         if 'financial_metrics' in analysis and analysis['financial_metrics']:

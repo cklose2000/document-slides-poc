@@ -4,14 +4,21 @@ import time
 from typing import Dict, Any, Optional
 import logging
 import os
+import re
+
+try:
+    from .source_tracker import SourceTracker
+except ImportError:
+    from source_tracker import SourceTracker
 
 class PDFExtractor:
     """
     PDF text and table extraction using LLMWhisperer API
     """
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, source_tracker: Optional[SourceTracker] = None):
         self.api_key = api_key
+        self.source_tracker = source_tracker
         self.base_url = os.getenv('LLMWHISPERER_BASE_URL', 'https://llmwhisperer-api.us-central.unstract.com/api/v2')
         self.headers = {
             'unstract-key': api_key,
@@ -169,28 +176,40 @@ class PDFExtractor:
     
     def _parse_results(self, result: Dict, pdf_path: str) -> Dict[str, Any]:
         """
-        Parse and structure LLMWhisperer results
+        Parse and structure LLMWhisperer results with page-level tracking
         
         Args:
             result: Raw result from LLMWhisperer API
             pdf_path: Original PDF file path
             
         Returns:
-            Structured extraction results
+            Structured extraction results with source tracking
         """
         try:
             # Extract text content
             extracted_text = result.get('extracted_text', '')
             
+            # Register document with source tracker if available
+            document_id = None
+            if self.source_tracker:
+                document_id = self.source_tracker.register_document(
+                    pdf_path, 
+                    'pdf',
+                    {'total_pages': self._estimate_pages(extracted_text)}
+                )
+            
             # Basic text analysis
             lines = extracted_text.split('\n')
             pages = self._estimate_pages(extracted_text)
             
-            # Extract key metrics (simple pattern matching)
-            key_metrics = self._extract_key_metrics(extracted_text)
+            # Split text by pages and track content
+            page_content = self._split_into_pages(extracted_text, pages)
             
-            # Detect sections
-            sections = self._detect_sections(lines)
+            # Extract key metrics with page tracking
+            key_metrics = self._extract_key_metrics_with_tracking(extracted_text, page_content, document_id)
+            
+            # Detect sections with page references
+            sections = self._detect_sections_with_pages(lines, page_content)
             
             # Count tables (estimate based on structure)
             tables_count = self._count_tables(extracted_text)
@@ -199,10 +218,13 @@ class PDFExtractor:
                 "filename": pdf_path.split('/')[-1],
                 "type": "pdf",
                 "pages": pages,
+                "page_content": page_content,
                 "sample_text": extracted_text[:500] + "..." if len(extracted_text) > 500 else extracted_text,
                 "key_metrics": key_metrics,
                 "sections": sections,
-                "tables_count": tables_count
+                "tables_count": tables_count,
+                "document_id": document_id,
+                "raw_text": extracted_text
             }
             
         except Exception as e:
@@ -216,12 +238,143 @@ class PDFExtractor:
         # Simple heuristic: assume ~2000 characters per page
         return max(1, len(text) // 2000)
     
+    def _split_into_pages(self, text: str, total_pages: int) -> Dict[int, str]:
+        """
+        Split text into approximate pages
+        """
+        if total_pages <= 1:
+            return {1: text}
+        
+        # Simple heuristic: split by character count
+        chars_per_page = len(text) // total_pages
+        page_content = {}
+        
+        for page_num in range(1, total_pages + 1):
+            start = (page_num - 1) * chars_per_page
+            end = page_num * chars_per_page if page_num < total_pages else len(text)
+            page_content[page_num] = text[start:end]
+        
+        return page_content
+    
+    def _extract_key_metrics_with_tracking(self, text: str, page_content: Dict[int, str], document_id: Optional[str]) -> Dict[str, Any]:
+        """
+        Extract key financial/business metrics from text with page tracking
+        """
+        metrics = {}
+        
+        # Common patterns for financial metrics
+        patterns = {
+            'revenue': r'(?:revenue|sales)\s*:?\s*\$?([\d,\.]+[MmBbKk]?)\b',
+            'growth': r'(?:growth|increase)\s*:?\s*([\d\.]+%)',
+            'profit': r'(?:profit|earnings)\s*:?\s*\$?([\d,\.]+[MmBbKk]?)\b',
+            'margin': r'(?:margin)\s*:?\s*([\d\.]+%)',
+            'customers': r'(?:customers|clients)\s*:?\s*([\d,]+)\b'
+        }
+        
+        for metric, pattern in patterns.items():
+            # Find matches in full text first
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            if matches:
+                match = matches[0]  # Take first match
+                value = match.group(1)
+                
+                # Find which page this match is on
+                page_num = self._find_page_for_position(match.start(), page_content)
+                
+                # Track data point if source tracker is available
+                data_point_id = None
+                if self.source_tracker and document_id:
+                    confidence = self._calculate_pdf_confidence(value, metric, match.group(0))
+                    data_point_id = self.source_tracker.track_data_point(
+                        value=value,
+                        document_id=document_id,
+                        location_details={
+                            'page_or_sheet': f"Page {page_num}",
+                            'cell_or_section': f"page_{page_num}",
+                            'coordinates': {'char_position': match.start()},
+                            'extraction_method': 'llmwhisperer_regex'
+                        },
+                        confidence=confidence,
+                        context=f"Extracted {metric}: {match.group(0)}"
+                    )
+                
+                metrics[metric] = {
+                    'value': value,
+                    'page': page_num,
+                    'data_point_id': data_point_id,
+                    'full_match': match.group(0)
+                }
+        
+        return metrics
+    
+    def _detect_sections_with_pages(self, lines: list, page_content: Dict[int, str]) -> Dict[str, Any]:
+        """
+        Detect major sections in the document with page references
+        """
+        sections = {}
+        full_text = '\n'.join(lines)
+        
+        for line_num, line in enumerate(lines):
+            line = line.strip()
+            if len(line) > 0 and (line.isupper() or line.endswith(':')):
+                if len(line) < 100:  # Likely a header
+                    section_name = line.lower().replace(':', '').replace(' ', '_')
+                    
+                    # Estimate page number for this line
+                    char_position = sum(len(lines[i]) + 1 for i in range(line_num))
+                    page_num = self._find_page_for_position(char_position, page_content)
+                    
+                    sections[section_name] = {
+                        'title': line,
+                        'page': page_num,
+                        'line_number': line_num
+                    }
+                    
+                    if len(sections) >= 10:  # Limit to first 10 sections
+                        break
+        
+        return sections
+    
+    def _find_page_for_position(self, char_position: int, page_content: Dict[int, str]) -> int:
+        """
+        Find which page a character position belongs to
+        """
+        current_position = 0
+        for page_num in sorted(page_content.keys()):
+            page_length = len(page_content[page_num])
+            if char_position <= current_position + page_length:
+                return page_num
+            current_position += page_length
+        
+        # Default to last page if position is beyond content
+        return max(page_content.keys()) if page_content else 1
+    
+    def _calculate_pdf_confidence(self, value: str, metric_type: str, full_match: str) -> float:
+        """
+        Calculate confidence score for PDF extracted data
+        """
+        confidence = 0.7  # Base confidence for PDF extraction
+        
+        # Boost confidence based on value characteristics
+        if '$' in full_match:
+            confidence += 0.1  # Currency symbol increases confidence
+        
+        if metric_type in ['revenue', 'profit'] and any(suffix in value.lower() for suffix in ['m', 'b', 'k']):
+            confidence += 0.1  # Scale indicators increase confidence
+        
+        if metric_type in ['growth', 'margin'] and '%' in full_match:
+            confidence += 0.1  # Percentage symbol increases confidence
+        
+        # Reduce confidence for very short values
+        if len(value) < 3:
+            confidence -= 0.2
+        
+        return max(0.3, min(0.95, confidence))  # Clamp between 0.3 and 0.95
+    
     def _extract_key_metrics(self, text: str) -> Dict[str, str]:
         """
-        Extract key financial/business metrics from text
+        Extract key financial/business metrics from text (legacy method)
         """
-        import re
-        
         metrics = {}
         
         # Common patterns for financial metrics
