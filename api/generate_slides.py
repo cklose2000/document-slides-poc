@@ -333,25 +333,34 @@ def generate_slides():
         slides_created = []
         
         # Title slide
+        print("Creating title slide...")
         company_name = analysis.get('company_overview', {}).get('name', 'Business Presentation')
         title_slide = generator.create_title_slide(
             title=company_name,
             subtitle="Financial Analysis & Performance Review"
         )
         slides_created.append("Title Slide")
+        print("Title slide created successfully")
         
         # Source summary slide (if using branded generator with source tracker)
+        print("Checking for source summary slide creation...")
         if hasattr(generator, 'create_source_summary_slide') and hasattr(generator, 'source_tracker') and generator.source_tracker:
             try:
+                print("Creating source summary slide...")
                 source_summary_slide = generator.create_source_summary_slide(
                     analysis.get('source_attributions', {})
                 )
                 if source_summary_slide:
                     slides_created.append("Data Sources & Methodology")
+                    print("Source summary slide created successfully")
                 else:
                     print("Source summary slide creation returned None - skipping")
             except Exception as e:
+                import traceback
                 print(f"Failed to create source summary slide: {str(e)}")
+                print(f"Source summary slide traceback: {traceback.format_exc()}")
+        else:
+            print("Source summary slide not available or no source tracker")
         
         # Financial summary slide(s)
         if 'financial_metrics' in analysis and analysis['financial_metrics']:
@@ -413,6 +422,10 @@ def generate_slides():
         )
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Slide generation error: {str(e)}")
+        print(f"Full traceback: {error_details}")
         return jsonify({'error': f'Slide generation failed: {str(e)}'}), 500
 
 @app.route('/api/generate-slides/preview', methods=['POST'])
