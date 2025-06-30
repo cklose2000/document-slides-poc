@@ -31,6 +31,80 @@ openai_key = os.getenv('OPENAI_API_KEY')
 
 # Note: Extractors will be initialized with source tracker in generate_slides function
 
+def _enhance_analysis_with_source_tracking(analysis, all_documents, source_tracker):
+    """Enhance LLM analysis with source tracking data point IDs"""
+    if not source_tracker:
+        return analysis
+    
+    enhanced_analysis = analysis.copy()
+    
+    # Create source attributions with data point IDs
+    source_attributions = {}
+    
+    # Extract source tracked data from documents
+    for doc in all_documents:
+        filename = doc.get('filename', 'unknown')
+        
+        # Handle different document types
+        if doc.get('type') == 'excel' and 'content' in doc:
+            excel_content = doc['content']
+            if 'sheets' in excel_content:
+                for sheet_name, sheet_data in excel_content['sheets'].items():
+                    if 'key_metrics' in sheet_data:
+                        for metric_name, metric_info in sheet_data['key_metrics'].items():
+                            if 'data_point_id' in metric_info:
+                                source_key = f"{metric_name}_{sheet_name}"
+                                source_attributions[source_key] = {
+                                    'filename': filename,
+                                    'data_point_id': metric_info['data_point_id'],
+                                    'value': metric_info.get('value'),
+                                    'source_type': 'excel'
+                                }
+        
+        elif doc.get('type') == 'pdf' and 'content' in doc:
+            pdf_content = doc['content']
+            if 'key_metrics' in pdf_content:
+                for metric_name, metric_info in pdf_content['key_metrics'].items():
+                    if isinstance(metric_info, dict) and 'data_point_id' in metric_info:
+                        source_attributions[metric_name] = {
+                            'filename': filename,
+                            'data_point_id': metric_info['data_point_id'],
+                            'value': metric_info.get('value'),
+                            'source_type': 'pdf'
+                        }
+        
+        elif doc.get('type') == 'word' and 'content' in doc:
+            word_content = doc['content']
+            if 'key_metrics' in word_content:
+                for metric_name, metric_info in word_content['key_metrics'].items():
+                    if isinstance(metric_info, dict) and 'data_point_id' in metric_info:
+                        source_attributions[metric_name] = {
+                            'filename': filename,
+                            'data_point_id': metric_info['data_point_id'],
+                            'value': metric_info.get('value'),
+                            'source_type': 'word'
+                        }
+    
+    # Enhance financial metrics with data point IDs
+    if 'financial_metrics' in enhanced_analysis:
+        for metric_name, metric_data in enhanced_analysis['financial_metrics'].items():
+            # Try to find matching source attribution
+            for source_key, source_info in source_attributions.items():
+                if metric_name in source_key or source_key in metric_name:
+                    # Add data_point_id to the metric
+                    if isinstance(metric_data, dict):
+                        metric_data['data_point_id'] = source_info['data_point_id']
+                    break
+    
+    # Update source attributions in analysis
+    if 'source_attributions' not in enhanced_analysis:
+        enhanced_analysis['source_attributions'] = {}
+    
+    # Merge source attributions
+    enhanced_analysis['source_attributions'].update(source_attributions)
+    
+    return enhanced_analysis
+
 @app.route('/api/generate-slides', methods=['POST'])
 def generate_slides():
     """
@@ -221,12 +295,15 @@ def generate_slides():
                 }
             }
         
+        # 2.5. Enhance analysis with source tracking data
+        analysis = _enhance_analysis_with_source_tracking(analysis, all_documents, source_tracker)
+        
         # 3. Generate slides
         # Check if template is specified
         template_id = request.form.get('template_id', 'default')
         
-        # TEMPORARILY FORCE SMART LAYOUT ENGINE FOR TESTING
-        use_smart_layout = True  # Set to False to use branded generator
+        # ENABLE ENHANCED SOURCE ATTRIBUTION FEATURES
+        use_smart_layout = False  # Set to True to use standard layout engine
         
         # Use branded slide generator if template management is available
         if TEMPLATE_MANAGEMENT_AVAILABLE and template_id and not use_smart_layout:
