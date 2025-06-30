@@ -264,12 +264,15 @@ def generate_slides():
         slides_created.append("Title Slide")
         
         # Source summary slide (if using branded generator with source tracker)
-        if hasattr(generator, 'create_source_summary_slide') and hasattr(generator, 'source_tracker'):
+        if hasattr(generator, 'create_source_summary_slide') and hasattr(generator, 'source_tracker') and generator.source_tracker:
             try:
                 source_summary_slide = generator.create_source_summary_slide(
                     analysis.get('source_attributions', {})
                 )
-                slides_created.append("Data Sources & Methodology")
+                if source_summary_slide:
+                    slides_created.append("Data Sources & Methodology")
+                else:
+                    print("Source summary slide creation returned None - skipping")
             except Exception as e:
                 print(f"Failed to create source summary slide: {str(e)}")
         

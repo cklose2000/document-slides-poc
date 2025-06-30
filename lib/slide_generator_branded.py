@@ -10,7 +10,7 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.oxml.shared import qn
+# from pptx.oxml.shared import qn  # Not needed for current implementation
 try:
     from .template_parser import BrandManager, TemplateParser
     from .source_tracker import SourceTracker
@@ -574,31 +574,55 @@ class BrandedSlideGenerator:
     
     def create_source_summary_slide(self, source_refs: Dict[str, Any]) -> Any:
         """Create a comprehensive source summary slide with statistics and confidence visualization"""
-        layout = self._get_layout_for_content('content')
-        slide = self.prs.slides.add_slide(layout)
-        
-        # Add title
-        title_shape = self._add_branded_title(slide, "Data Sources & Methodology")
-        
-        if not self.source_tracker:
-            # Fallback if no source tracker
-            info_shape = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
-            info_shape.text_frame.text = "Source tracking not available"
+        try:
+            layout = self._get_layout_for_content('content')
+            slide = self.prs.slides.add_slide(layout)
+            
+            # Add title
+            title_shape = self._add_branded_title(slide, "Data Sources & Methodology")
+            
+            if not self.source_tracker:
+                # Fallback if no source tracker
+                info_shape = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
+                info_shape.text_frame.text = "Source tracking not available"
+                return slide
+            
+            # Collect comprehensive statistics
+            stats = self._collect_source_statistics(source_refs)
+            
+            # Left side: Document list and extraction stats
+            try:
+                self._add_document_summary(slide, stats, Inches(0.5), Inches(1.8))
+            except Exception as e:
+                print(f"Error adding document summary: {e}")
+            
+            # Right side: Confidence distribution chart
+            try:
+                self._add_confidence_chart(slide, stats, Inches(5.5), Inches(1.8))
+            except Exception as e:
+                print(f"Error adding confidence chart: {e}")
+            
+            # Bottom: Processing methodology
+            try:
+                self._add_methodology_section(slide, stats, Inches(0.5), Inches(5.2))
+            except Exception as e:
+                print(f"Error adding methodology section: {e}")
+            
             return slide
-        
-        # Collect comprehensive statistics
-        stats = self._collect_source_statistics(source_refs)
-        
-        # Left side: Document list and extraction stats
-        self._add_document_summary(slide, stats, Inches(0.5), Inches(1.8))
-        
-        # Right side: Confidence distribution chart
-        self._add_confidence_chart(slide, stats, Inches(5.5), Inches(1.8))
-        
-        # Bottom: Processing methodology
-        self._add_methodology_section(slide, stats, Inches(0.5), Inches(5.2))
-        
-        return slide
+        except Exception as e:
+            print(f"Error creating source summary slide: {e}")
+            # Return a basic slide with error message
+            try:
+                layout = self._get_layout_for_content('content')
+                slide = self.prs.slides.add_slide(layout)
+                title_shape = self._add_branded_title(slide, "Data Sources & Methodology")
+                
+                error_shape = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
+                error_shape.text_frame.text = f"Error creating source summary: {str(e)}"
+                return slide
+            except:
+                # If even that fails, return None
+                return None
     
     def _collect_source_statistics(self, source_refs: Dict[str, Any]) -> Dict[str, Any]:
         """Collect comprehensive statistics about sources"""
@@ -723,31 +747,59 @@ class BrandedSlideGenerator:
     
     def _add_confidence_chart(self, slide: Any, stats: Dict[str, Any], left: float, top: float):
         """Add confidence distribution chart"""
-        # Create pie chart data
-        conf_dist = stats['confidence_distribution']
-        data = {
-            'High (≥90%)': conf_dist['high'],
-            'Medium (70-89%)': conf_dist['medium'],
-            'Low (50-69%)': conf_dist['low'],
-            'Very Low (<50%)': conf_dist['very_low']
-        }
-        
-        # Filter out zero values
-        data = {k: v for k, v in data.items() if v > 0}
-        
-        if data:
-            # Generate pie chart
-            chart_options = {
-                'title': 'Confidence Distribution',
-                'colors': ['#00FF00', '#FFA500', '#FF8C00', '#FF0000'],
-                'figsize': (4, 3.5)
+        try:
+            # Create pie chart data
+            conf_dist = stats['confidence_distribution']
+            data = {
+                'High (≥90%)': conf_dist['high'],
+                'Medium (70-89%)': conf_dist['medium'],
+                'Low (50-69%)': conf_dist['low'],
+                'Very Low (<50%)': conf_dist['very_low']
             }
             
-            chart_buffer = self.chart_generator.create_pie_chart(data, **chart_options)
+            # Filter out zero values
+            data = {k: v for k, v in data.items() if v > 0}
             
-            if chart_buffer:
-                # Add chart to slide
-                slide.shapes.add_picture(chart_buffer, left, top, width=Inches(4))
+            if data and hasattr(self, 'chart_generator'):
+                # Generate pie chart
+                chart_options = {
+                    'title': 'Confidence Distribution',
+                    'colors': ['#00FF00', '#FFA500', '#FF8C00', '#FF0000'],
+                    'figsize': (4, 3.5)
+                }
+                
+                chart_buffer = self.chart_generator.create_pie_chart(data, **chart_options)
+                
+                if chart_buffer:
+                    # Add chart to slide
+                    slide.shapes.add_picture(chart_buffer, left, top, width=Inches(4))
+            else:
+                # Fallback: Add text-based confidence summary
+                chart_shape = slide.shapes.add_textbox(left, top, Inches(4), Inches(3))
+                chart_frame = chart_shape.text_frame
+                
+                p = chart_frame.paragraphs[0]
+                p.text = "Confidence Distribution"
+                self._apply_font_style(p, 'heading', size='small')
+                p.space_after = Pt(8)
+                
+                total_points = sum(conf_dist.values())
+                if total_points > 0:
+                    for level, count in data.items():
+                        if count > 0:
+                            p = chart_frame.add_paragraph()
+                            percentage = int((count / total_points) * 100)
+                            p.text = f"• {level}: {count} ({percentage}%)"
+                            self._apply_font_style(p, 'body', size='small')
+        except Exception as e:
+            print(f"Error creating confidence chart: {e}")
+            # Add fallback text
+            try:
+                chart_shape = slide.shapes.add_textbox(left, top, Inches(4), Inches(1))
+                chart_frame = chart_shape.text_frame
+                chart_frame.text = "Confidence chart unavailable"
+            except:
+                pass
     
     def _add_methodology_section(self, slide: Any, stats: Dict[str, Any], left: float, top: float):
         """Add methodology section"""
