@@ -219,8 +219,11 @@ def generate_slides():
         # Check if template is specified
         template_id = request.form.get('template_id', 'default')
         
+        # TEMPORARILY FORCE SMART LAYOUT ENGINE FOR TESTING
+        use_smart_layout = True  # Set to False to use branded generator
+        
         # Use branded slide generator if template management is available
-        if TEMPLATE_MANAGEMENT_AVAILABLE and template_id:
+        if TEMPLATE_MANAGEMENT_AVAILABLE and template_id and not use_smart_layout:
             try:
                 from lib.slide_generator_branded import BrandedSlideGenerator
                 from lib.source_tracker import SourceTracker
@@ -238,9 +241,11 @@ def generate_slides():
                 print(f"Using branded slide generator with template: {template_id}")
             except Exception as e:
                 print(f"Failed to use branded generator: {str(e)}, falling back to standard")
-                generator = SlideGenerator()
+                generator = SlideGenerator(use_branding=False)
         else:
-            generator = SlideGenerator()
+            # Force smart layout engine
+            print(f"Using standard generator with SMART LAYOUT ENGINE (template: {template_id})")
+            generator = SlideGenerator(use_branding=False)
         
         # Create slides based on analysis
         slides_created = []

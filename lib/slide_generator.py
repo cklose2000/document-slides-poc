@@ -111,6 +111,14 @@ class SlideGenerator:
         if self.layout_engine and data:
             content_data = {'financial_metrics': data} if isinstance(data, dict) else data
             layout_rec = self.layout_engine.recommend_layout(content_data)
+            print(f"SMART LAYOUT ENGINE: {layout_rec.layout_type}")
+            print(f"Font sizes: {layout_rec.font_sizes}")
+            print(f"Element positions: {layout_rec.element_positions}")
+            print(f"Should split: {layout_rec.split_recommendation}")
+            print(f"Reasoning: {layout_rec.reasoning}")
+            print(f"Data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+            print(f"Has table position: {'table' in layout_rec.element_positions}")
+            print(f"Has chart position: {'chart' in layout_rec.element_positions}")
         
         # Fallback to original implementation
         # Use blank layout (index 6 is typically blank)
@@ -133,15 +141,18 @@ class SlideGenerator:
         # Use smart layout positioning if available
         if layout_rec and 'table' in layout_rec.element_positions and 'chart' in layout_rec.element_positions:
             # Dashboard layout with table and chart
+            print("USING DASHBOARD LAYOUT WITH POSITIONED ELEMENTS!")
             table_pos = layout_rec.element_positions['table']
             chart_pos = layout_rec.element_positions['chart']
             
             # Add metrics table with layout positioning
             if data and isinstance(data, dict):
+                print(f"Adding table at position: {table_pos}")
                 self._add_metrics_table_positioned(slide, data, layout_rec, table_pos)
             
             # Add chart with layout positioning
             if data and isinstance(data, dict) and self.chart_generator:
+                print(f"Adding chart at position: {chart_pos}")
                 self._try_add_chart_positioned(slide, data, layout_rec, chart_pos)
         else:
             # Fallback to original layout logic

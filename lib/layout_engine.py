@@ -225,6 +225,11 @@ class SmartLayoutEngine:
         layout_type = self._select_layout_template(content_type, complexity)
         base_template = self.layout_templates[layout_type]
         
+        print(f"DEBUG Layout Engine: Content type = {content_type}, Complexity = {complexity}")
+        print(f"DEBUG Layout Engine: Number of blocks = {len(blocks)}")
+        for i, block in enumerate(blocks):
+            print(f"  Block {i}: type={block.content_type}, data_points={block.data_points}")
+        
         # Customize based on content analysis
         recommendation = self._customize_layout(
             base_template, content_type, complexity, blocks
@@ -325,7 +330,8 @@ class SmartLayoutEngine:
         content_top = 0.5 + title_margin + 0.3
         content_height = slide_height - content_top - 0.5
         
-        if content_type == ContentType.DATA_HEAVY and num_blocks >= 2:
+        print(f"DEBUG positions: content_type={content_type}, num_blocks={num_blocks}")
+        if content_type == ContentType.DATA_HEAVY and num_blocks >= 1:  # Changed from >= 2 to >= 1
             # Split content area for data + chart
             positions['table'] = (0.5, content_top, 4.5, content_height)
             positions['chart'] = (5.5, content_top, 4.0, content_height * 0.8)
