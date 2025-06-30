@@ -15,10 +15,14 @@ try:
     from .template_parser import BrandManager, TemplateParser
     from .source_tracker import SourceTracker
     from .chart_generator import ChartGenerator
+    from .visual_effects import VisualEffectsEngine
+    from .simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
 except ImportError:
     from template_parser import BrandManager, TemplateParser
     from source_tracker import SourceTracker
     from chart_generator import ChartGenerator
+    from visual_effects import VisualEffectsEngine
+    from simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
 import os
 import re
 from typing import Dict, List, Any, Optional, Tuple
@@ -43,6 +47,10 @@ class BrandedSlideGenerator:
         chart_config = self._adapt_brand_config_for_charts(self.brand_config)
         self.chart_generator = ChartGenerator(chart_config)
         
+        # Initialize visual effects engines for modern styling
+        self.visual_effects = VisualEffectsEngine(self.brand_config)
+        self.simple_effects = SimpleVisualEffects(self.brand_config)
+        
         # Initialize presentation
         self._init_presentation()
     
@@ -60,10 +68,13 @@ class BrandedSlideGenerator:
             self.prs = Presentation()
     
     def create_financial_summary_slide(self, data: Dict[str, Any], source_refs: Dict[str, Any]) -> Any:
-        """Create a branded financial summary slide"""
+        """Create a branded financial summary slide with modern visual effects"""
         # Select appropriate layout
         layout = self._get_layout_for_content('financial_summary')
         slide = self.prs.slides.add_slide(layout)
+        
+        # Apply simple visual effects for content slides
+        enhance_slide_simply(slide, 'content', self.brand_config)
         
         # Add title with brand styling
         title_shape = self._add_branded_title(slide, "Financial Summary")
@@ -78,9 +89,12 @@ class BrandedSlideGenerator:
         return slide
     
     def create_company_overview_slide(self, company_data: Dict[str, Any], source_refs: Dict[str, Any]) -> Any:
-        """Create a branded company overview slide"""
+        """Create a branded company overview slide with modern visual effects"""
         layout = self._get_layout_for_content('company_overview')
         slide = self.prs.slides.add_slide(layout)
+        
+        # Apply simple visual effects for content slides
+        enhance_slide_simply(slide, 'content', self.brand_config)
         
         # Add title
         title_shape = self._add_branded_title(slide, "Company Overview")
@@ -152,9 +166,8 @@ class BrandedSlideGenerator:
                 Inches(1), Inches(0.5), Inches(8), Inches(1)
             )
         
-        # Set title text
+        # Set title text (no need to clear, setting text replaces content)
         title_frame = title_shape.text_frame
-        title_frame.clear()
         title_frame.text = title_text
         
         # Apply brand styling
@@ -838,12 +851,19 @@ class BrandedSlideGenerator:
             run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
     
     def create_title_slide(self, title: str, subtitle: str = None) -> Any:
-        """Create a branded title slide"""
+        """Create a branded title slide with modern visual effects"""
         layout = self._get_layout_for_content('title')
         slide = self.prs.slides.add_slide(layout)
         
-        # Add main title
+        # Apply simple but effective visual effects
+        enhance_slide_simply(slide, 'title', self.brand_config)
+        
+        # Add main title with enhanced styling
         title_shape = self._add_branded_title(slide, title)
+        
+        # Apply enhanced title styling
+        if title_shape and hasattr(title_shape, 'text_frame'):
+            self.simple_effects.enhance_title_text(title_shape.text_frame, 'dramatic')
         
         # Add subtitle if provided
         if subtitle:
@@ -853,10 +873,13 @@ class BrandedSlideGenerator:
             subtitle_frame = subtitle_shape.text_frame
             subtitle_frame.text = subtitle
             
-            # Style subtitle
+            # Style subtitle with modern effects
             for paragraph in subtitle_frame.paragraphs:
                 self._apply_font_style(paragraph, 'body', size='large')
                 paragraph.alignment = PP_ALIGN.CENTER
+            
+            # Apply enhanced subtitle styling
+            self.simple_effects.enhance_title_text(subtitle_frame, 'subtitle')
         
         return slide
     
@@ -1092,6 +1115,9 @@ class BrandedSlideGenerator:
         # Get appropriate layout
         layout = self._get_layout_for_content('chart')
         slide = self.prs.slides.add_slide(layout)
+        
+        # Apply simple visual effects for chart slides
+        enhance_slide_simply(slide, 'chart', self.brand_config)
         
         # Add title
         title_shape = self._add_branded_title(slide, title)
@@ -1346,5 +1372,36 @@ class BrandedSlideGenerator:
         self._apply_font_style(p, 'heading', size='large')
         p.alignment = PP_ALIGN.CENTER
         p.font.color.rgb = self._hex_to_rgb(self._get_brand_color('accent1', '#4F81BD'))
+        
+        return slide
+    
+    def add_slide_numbers(self, start_from=1, exclude_first=True, exclude_last=True):
+        """Add slide numbers to all slides with brand styling"""
+        total_slides = len(self.prs.slides)
+        
+        for idx, slide in enumerate(self.prs.slides):
+            # Skip first slide (title) if requested
+            if exclude_first and idx == 0:
+                continue
+            
+            # Skip last slide (thank you) if requested
+            if exclude_last and idx == total_slides - 1:
+                continue
+            
+            # Add slide number with brand styling
+            slide_num = idx if not exclude_first else idx
+            footer_shape = slide.shapes.add_textbox(
+                Inches(8.5), Inches(7), Inches(1), Inches(0.3)
+            )
+            footer_frame = footer_shape.text_frame
+            footer_frame.text = f"{slide_num}/{total_slides - (1 if exclude_first else 0) - (1 if exclude_last else 0)}"
+            
+            footer_paragraph = footer_frame.paragraphs[0]
+            footer_paragraph.font.size = Pt(10)
+            footer_paragraph.alignment = PP_ALIGN.RIGHT
+            
+            # Apply brand colors to slide numbers
+            accent_color = self._get_brand_color('accent2', '#808080')
+            footer_paragraph.font.color.rgb = self._hex_to_rgb(accent_color)
         
         return slide

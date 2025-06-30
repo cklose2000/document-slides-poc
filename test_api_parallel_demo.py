@@ -137,7 +137,7 @@ class APITestAgent:
         test_name = "health_check"
         
         try:
-            response = self.session.get(f"{base_url}/health", timeout=10)
+            response = self.session.get(f"{self.base_url}/health", timeout=10)
             response_time = time.time() - start_time
             
             return TestResult(
@@ -782,15 +782,20 @@ def run_quick_test():
     results = orchestrator.run_parallel_tests()
     
     # Quick summary
-    summary = results['summary']
-    print(f"\n📊 Quick Test Results: {summary['passed']}/{summary['total_tests']} passed ({summary['success_rate']})")
-    
-    if results.get('enhanced_error_analysis', {}).get('critical_errors'):
-        critical = results['enhanced_error_analysis']['critical_errors'][0]
-        print(f"🚨 Most Critical Issue: {critical['error_type']}")
-        print(f"   Fix: {critical['suggested_fix']}")
-    
-    return summary['failed'] == 0
+    summary = results.get('summary', {})
+    if summary:
+        print(f"\n📊 Quick Test Results: {summary['passed']}/{summary['total_tests']} passed ({summary['success_rate']})")
+        
+        error_analysis = results.get('enhanced_error_analysis', {})
+        if error_analysis and error_analysis.get('critical_errors'):
+            critical = error_analysis['critical_errors'][0]
+            print(f"🚨 Most Critical Issue: {critical['error_type']}")
+            print(f"   Fix: {critical['suggested_fix']}")
+        
+        return summary['failed'] == 0
+    else:
+        print("⚠️ Test results not available")
+        return False
 
 if __name__ == "__main__":
     import sys

@@ -142,11 +142,18 @@ class ChartGenerator:
                 ax.grid(axis='y', alpha=0.2, linestyle='--', linewidth=0.5)
                 ax.set_axisbelow(True)
         
-        # Add gradient effect with edge color
+        # Add modern gradient effect with enhanced styling
         if gradient_fill:
             for bar, color in zip(bars, colors):
-                bar.set_edgecolor(color)
-                bar.set_linewidth(2)
+                # Create darker edge color for depth
+                edge_color = self._darken_color(color, factor=0.3)
+                bar.set_edgecolor(edge_color)
+                bar.set_linewidth(3)
+                
+                # Add subtle shadow effect
+                if hasattr(bar, 'set_path_effects'):
+                    from matplotlib.patches import Shadow
+                    bar.set_path_effects([Shadow(offset=(2, -2), alpha=0.1)])
         
         # Add value labels on bars
         if add_value_labels:
@@ -582,6 +589,26 @@ class ChartGenerator:
         
         # Add subtle background
         ax.set_facecolor('#FAFAFA')
+    
+    def _darken_color(self, color: str, factor: float = 0.3) -> str:
+        """Darken a hex color by the specified factor for depth effects"""
+        # Remove # if present
+        color = color.lstrip('#')
+        
+        # Convert to RGB
+        try:
+            r = int(color[0:2], 16)
+            g = int(color[2:4], 16)
+            b = int(color[4:6], 16)
+            
+            # Darken each component
+            r = max(0, int(r * (1 - factor)))
+            g = max(0, int(g * (1 - factor)))
+            b = max(0, int(b * (1 - factor)))
+            
+            return f"#{r:02x}{g:02x}{b:02x}"
+        except:
+            return color  # Return original if conversion fails
     
     def save_chart_to_file(self, chart_buffer: BytesIO, filepath: str):
         """Save chart buffer to file"""
