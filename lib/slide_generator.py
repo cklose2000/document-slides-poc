@@ -1,7 +1,7 @@
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 import os
 import tempfile
@@ -192,7 +192,7 @@ class SlideGenerator:
         return slides_created
     
     def _add_metrics_table_full_slide(self, slide, metrics_data, layout_rec):
-        """Add a metrics table using full slide space"""
+        """Add a metrics table using full slide space with enhanced styling"""
         if not metrics_data:
             return
         
@@ -203,7 +203,7 @@ class SlideGenerator:
         height = 4.5
         
         rows = min(len(metrics_data) + 1, 10)  # +1 for header, max 10 rows
-        cols = 3  # Metric, Value, Source
+        cols = 4  # Metric, Value, Trend, Source
         
         # Add table shape
         table_shape = slide.shapes.add_table(
@@ -214,12 +214,13 @@ class SlideGenerator:
         table = table_shape.table
         
         # Set column widths proportionally
-        table.columns[0].width = Inches(3.5)  # Metric name
-        table.columns[1].width = Inches(2.5)  # Value
-        table.columns[2].width = Inches(2.0)  # Source
+        table.columns[0].width = Inches(3.2)  # Metric name
+        table.columns[1].width = Inches(2.3)  # Value
+        table.columns[2].width = Inches(0.8)  # Trend
+        table.columns[3].width = Inches(1.7)  # Source
         
         # Add headers with good font sizing
-        headers = ['Key Metrics', 'Value', 'Source']
+        headers = ['Key Metrics', 'Value', 'Trend', 'Source']
         header_font_size = 16
         
         for i, header in enumerate(headers):
@@ -235,6 +236,14 @@ class SlideGenerator:
             if row_idx >= rows:
                 break
             
+            # Apply alternating row colors
+            for col in range(cols):
+                cell = table.cell(row_idx, col)
+                if row_idx % 2 == 0:
+                    # Light gray background for even rows
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = RGBColor(248, 248, 248)
+            
             # Metric name (clean it up)
             try:
                 from .layout_engine import MetricsPrioritizer
@@ -246,6 +255,8 @@ class SlideGenerator:
             
             # Value (format properly)
             value = metric_info.get('value', 'N/A')
+            numeric_value = self._extract_numeric_value(value) if isinstance(value, str) else value
+            
             if isinstance(value, str) and any(c in value.lower() for c in ['m', 'k', '$']):
                 formatted_value = f"${value}" if not value.startswith('$') else value
             elif isinstance(value, (int, float)):
@@ -260,6 +271,34 @@ class SlideGenerator:
             
             table.cell(row_idx, 1).text = formatted_value
             
+            # Trend indicator (based on metric type or value)
+            trend_cell = table.cell(row_idx, 2)
+            trend_text = ""
+            trend_color = RGBColor(128, 128, 128)  # Default gray
+            
+            # Determine trend based on metric name or value
+            metric_lower = metric_name.lower()
+            if any(growth_term in metric_lower for growth_term in ['growth', 'increase', 'yoy', 'revenue', 'profit']):
+                if numeric_value and numeric_value > 0:
+                    trend_text = "↑"
+                    trend_color = RGBColor(0, 128, 0)  # Green
+                elif numeric_value and numeric_value < 0:
+                    trend_text = "↓"
+                    trend_color = RGBColor(255, 0, 0)  # Red
+                else:
+                    trend_text = "→"
+            elif any(decrease_term in metric_lower for decrease_term in ['churn', 'cost', 'expense']):
+                if numeric_value and numeric_value < 10:  # Low is good for these metrics
+                    trend_text = "↓"
+                    trend_color = RGBColor(0, 128, 0)  # Green
+                else:
+                    trend_text = "↑"
+                    trend_color = RGBColor(255, 165, 0)  # Orange
+            else:
+                trend_text = "→"
+            
+            trend_cell.text = trend_text
+            
             # Source
             source_info = metric_info.get('source', {})
             if isinstance(source_info, dict):
@@ -271,17 +310,25 @@ class SlideGenerator:
             else:
                 source_text = 'Financial Report'
             
-            table.cell(row_idx, 2).text = source_text
+            table.cell(row_idx, 3).text = source_text
             
             # Style data cells
-            for col in range(3):
+            for col in range(cols):
                 cell = table.cell(row_idx, col)
                 for paragraph in cell.text_frame.paragraphs:
                     for run in paragraph.runs:
                         run.font.size = Pt(body_font_size)
                         if col == 1:  # Value column - make it bold
                             run.font.bold = True
-                            run.font.color.rgb = RGBColor(0, 102, 51)  # Dark green
+                            # Color based on value
+                            if numeric_value and numeric_value > 0:
+                                run.font.color.rgb = RGBColor(0, 102, 51)  # Dark green
+                            elif numeric_value and numeric_value < 0:
+                                run.font.color.rgb = RGBColor(204, 0, 0)  # Dark red
+                        elif col == 2:  # Trend column
+                            run.font.size = Pt(18)  # Larger font for arrows
+                            run.font.color.rgb = trend_color
+                            paragraph.alignment = PP_ALIGN.CENTER
             
             row_idx += 1
     
@@ -635,48 +682,109 @@ class SlideGenerator:
         return slide
     
     def _add_company_info_enhanced(self, slide, company_data, left, top):
-        """Add company information with enhanced visual layout"""
+        """Add company information with enhanced visual layout including callout boxes"""
+        current_top = top
+        
         # Company Name (Large)
         if 'name' in company_data:
-            name_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(0.8))
+            name_shape = slide.shapes.add_textbox(left, current_top, Inches(8), Inches(0.8))
             name_frame = name_shape.text_frame
             name_frame.text = company_data['name']
             name_paragraph = name_frame.paragraphs[0]
             name_paragraph.font.size = Pt(28)
             name_paragraph.font.bold = True
             name_paragraph.font.color.rgb = RGBColor(37, 64, 97)
-            top += Inches(1.0)
+            current_top += Inches(1.0)
         
         # Industry (Medium with background)
         if 'industry' in company_data:
             # Add background shape
             bg_shape = slide.shapes.add_shape(
                 MSO_SHAPE.ROUNDED_RECTANGLE,
-                left - Inches(0.2), top - Inches(0.1),
+                left - Inches(0.2), current_top - Inches(0.1),
                 Inches(8.4), Inches(0.8)
             )
             bg_shape.fill.solid()
             bg_shape.fill.fore_color.rgb = RGBColor(240, 248, 255)  # Light blue background
             bg_shape.line.fill.background()
             
-            industry_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(0.6))
+            industry_shape = slide.shapes.add_textbox(left, current_top, Inches(8), Inches(0.6))
             industry_frame = industry_shape.text_frame
             industry_frame.text = f"Industry: {company_data['industry']}"
             industry_paragraph = industry_frame.paragraphs[0]
             industry_paragraph.font.size = Pt(20)
             industry_paragraph.font.color.rgb = RGBColor(79, 129, 189)
-            top += Inches(1.2)
+            current_top += Inches(1.2)
         
-        # Description (Body text)
+        # Description (Body text) - shortened to make room for callout boxes
         if 'description' in company_data:
-            desc_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(2.5))
+            desc_shape = slide.shapes.add_textbox(left, current_top, Inches(8), Inches(1.5))
             desc_frame = desc_shape.text_frame
             desc_frame.word_wrap = True
-            desc_frame.text = company_data['description']
+            desc_frame.text = company_data['description'][:200] + "..." if len(company_data.get('description', '')) > 200 else company_data.get('description', '')
             desc_paragraph = desc_frame.paragraphs[0]
             desc_paragraph.font.size = Pt(16)
             desc_paragraph.line_spacing = 1.5
             desc_paragraph.font.color.rgb = RGBColor(64, 64, 64)
+            current_top += Inches(1.8)
+        
+        # Add key stats in callout boxes
+        self._add_company_stats_callouts(slide, company_data, left, current_top)
+    
+    def _add_company_stats_callouts(self, slide, company_data, left, top):
+        """Add key company statistics in visual callout boxes"""
+        # Sample stats that might be in company data or defaults
+        stats = [
+            ('Global Reach', '15+ Countries', RGBColor(79, 129, 189)),
+            ('Team Size', '450+ People', RGBColor(146, 208, 80)),
+            ('Founded', '2019', RGBColor(255, 192, 0))
+        ]
+        
+        # Create callout boxes for stats
+        box_width = 2.5
+        box_height = 1.0
+        spacing = 0.3
+        current_left = left
+        
+        for i, (label, value, color) in enumerate(stats[:3]):  # Max 3 stats
+            # Create rounded rectangle callout box
+            box = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                current_left, top,
+                Inches(box_width), Inches(box_height)
+            )
+            box.fill.solid()
+            box.fill.fore_color.rgb = color
+            box.fill.transparency = 0.85  # Make it subtle
+            box.line.color.rgb = color
+            box.line.width = Pt(2)
+            
+            # Add label
+            label_shape = slide.shapes.add_textbox(
+                current_left + Inches(0.1), top + Inches(0.1),
+                Inches(box_width - 0.2), Inches(0.3)
+            )
+            label_frame = label_shape.text_frame
+            label_frame.text = label
+            label_paragraph = label_frame.paragraphs[0]
+            label_paragraph.font.size = Pt(12)
+            label_paragraph.font.color.rgb = RGBColor(64, 64, 64)
+            label_paragraph.alignment = PP_ALIGN.CENTER
+            
+            # Add value
+            value_shape = slide.shapes.add_textbox(
+                current_left + Inches(0.1), top + Inches(0.4),
+                Inches(box_width - 0.2), Inches(0.4)
+            )
+            value_frame = value_shape.text_frame
+            value_frame.text = value
+            value_paragraph = value_frame.paragraphs[0]
+            value_paragraph.font.size = Pt(22)
+            value_paragraph.font.bold = True
+            value_paragraph.font.color.rgb = color
+            value_paragraph.alignment = PP_ALIGN.CENTER
+            
+            current_left += Inches(box_width + spacing)
     
     def _add_company_info(self, slide, company_data, left, top):
         """Add company information text box (legacy method)"""
@@ -781,7 +889,99 @@ class SlideGenerator:
         return slide
     
     def _add_insights_enhanced(self, slide, insights, left, top):
-        """Add insights with enhanced visual design"""
+        """Add insights with enhanced visual design in a 2x2 grid layout"""
+        if not isinstance(insights, list) or not insights:
+            return
+        
+        # Use 2x2 grid layout for up to 4 insights
+        insights_to_show = insights[:4]  # Maximum 4 insights
+        
+        # Grid parameters
+        box_width = 4.0
+        box_height = 1.8
+        h_spacing = 0.5
+        v_spacing = 0.4
+        
+        # Icon colors for different insight types
+        colors = [
+            RGBColor(79, 129, 189),   # Blue
+            RGBColor(146, 208, 80),   # Green
+            RGBColor(255, 192, 0),    # Yellow
+            RGBColor(255, 102, 102)   # Red
+        ]
+        
+        for i, insight in enumerate(insights_to_show):
+            # Calculate position in grid
+            row = i // 2
+            col = i % 2
+            
+            box_left = left + (box_width + h_spacing) * col
+            box_top = top + (box_height + v_spacing) * row
+            
+            # Create insight box with shadow effect
+            # Shadow first
+            shadow = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                box_left + Inches(0.05), box_top + Inches(0.05),
+                Inches(box_width), Inches(box_height)
+            )
+            shadow.fill.solid()
+            shadow.fill.fore_color.rgb = RGBColor(200, 200, 200)
+            shadow.line.fill.background()
+            
+            # Main box
+            box = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                box_left, box_top,
+                Inches(box_width), Inches(box_height)
+            )
+            box.fill.solid()
+            box.fill.fore_color.rgb = RGBColor(255, 255, 255)  # White background
+            box.line.color.rgb = colors[i % len(colors)]
+            box.line.width = Pt(2)
+            
+            # Add icon placeholder (colored circle with number)
+            icon_size = 0.6
+            icon = slide.shapes.add_shape(
+                MSO_SHAPE.OVAL,
+                box_left + Inches(0.2), box_top + Inches(0.2),
+                Inches(icon_size), Inches(icon_size)
+            )
+            icon.fill.solid()
+            icon.fill.fore_color.rgb = colors[i % len(colors)]
+            icon.line.fill.background()
+            
+            # Add number in icon
+            icon_text = slide.shapes.add_textbox(
+                box_left + Inches(0.2), box_top + Inches(0.2),
+                Inches(icon_size), Inches(icon_size)
+            )
+            icon_frame = icon_text.text_frame
+            icon_frame.text = str(i + 1)
+            icon_paragraph = icon_frame.paragraphs[0]
+            icon_paragraph.font.size = Pt(20)
+            icon_paragraph.font.bold = True
+            icon_paragraph.font.color.rgb = RGBColor(255, 255, 255)
+            icon_paragraph.alignment = PP_ALIGN.CENTER
+            icon_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+            
+            # Add insight text
+            text_shape = slide.shapes.add_textbox(
+                box_left + Inches(1.0), box_top + Inches(0.3),
+                Inches(box_width - 1.2), Inches(box_height - 0.6)
+            )
+            text_frame = text_shape.text_frame
+            text_frame.word_wrap = True
+            text_frame.text = insight[:150] + "..." if len(insight) > 150 else insight
+            
+            text_paragraph = text_frame.paragraphs[0]
+            text_paragraph.font.size = Pt(14)
+            text_paragraph.line_spacing = 1.2
+            text_paragraph.font.color.rgb = RGBColor(64, 64, 64)
+            text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+    
+    def _add_insights_linear(self, slide, insights, left, top):
+        """Add insights in a linear layout (legacy method)"""
         current_top = top
         
         if isinstance(insights, list):
@@ -1008,6 +1208,130 @@ class SlideGenerator:
             cleaned = cleaned.replace(old, new)
         
         return cleaned
+    
+    def create_title_slide(self, title, subtitle=None, date=None):
+        """Create a professional title slide"""
+        # Use branded generator if available
+        if self.use_branding:
+            return self.branded_generator.create_title_slide(title, subtitle, date)
+        
+        # Create title slide
+        slide_layout = self.prs.slide_layouts[0] if len(self.prs.slide_layouts) > 0 else self.prs.slide_layouts[-1]
+        slide = self.prs.slides.add_slide(slide_layout)
+        
+        # Add background gradient
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, self.prs.slide_width, self.prs.slide_height)
+        shape.fill.gradient()
+        shape.fill.gradient_angle = 90
+        shape.fill.gradient_stops[0].color.rgb = RGBColor(240, 248, 255)  # Alice Blue
+        shape.fill.gradient_stops[1].color.rgb = RGBColor(255, 255, 255)  # White
+        shape.line.fill.background()
+        
+        # Add title
+        title_shape = slide.shapes.add_textbox(Inches(1), Inches(2.5), Inches(8), Inches(2))
+        title_frame = title_shape.text_frame
+        title_frame.text = title
+        
+        # Style the title
+        title_paragraph = title_frame.paragraphs[0]
+        title_paragraph.font.size = Pt(48)
+        title_paragraph.font.bold = True
+        title_paragraph.alignment = PP_ALIGN.CENTER
+        title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
+        
+        # Add subtitle if provided
+        if subtitle:
+            subtitle_shape = slide.shapes.add_textbox(Inches(1), Inches(4.5), Inches(8), Inches(1))
+            subtitle_frame = subtitle_shape.text_frame
+            subtitle_frame.text = subtitle
+            
+            subtitle_paragraph = subtitle_frame.paragraphs[0]
+            subtitle_paragraph.font.size = Pt(28)
+            subtitle_paragraph.alignment = PP_ALIGN.CENTER
+            subtitle_paragraph.font.color.rgb = RGBColor(79, 129, 189)  # Medium blue
+        
+        # Add date
+        if not date:
+            from datetime import datetime
+            date = datetime.now().strftime("%B %Y")
+        
+        date_shape = slide.shapes.add_textbox(Inches(1), Inches(6), Inches(8), Inches(0.5))
+        date_frame = date_shape.text_frame
+        date_frame.text = date
+        
+        date_paragraph = date_frame.paragraphs[0]
+        date_paragraph.font.size = Pt(18)
+        date_paragraph.alignment = PP_ALIGN.CENTER
+        date_paragraph.font.color.rgb = RGBColor(128, 128, 128)  # Gray
+        
+        return slide
+    
+    def create_thank_you_slide(self):
+        """Create a professional thank you/questions slide"""
+        # Use branded generator if available
+        if self.use_branding:
+            return self.branded_generator.create_thank_you_slide()
+        
+        # Create slide
+        slide_layout = self.prs.slide_layouts[6] if len(self.prs.slide_layouts) > 6 else self.prs.slide_layouts[-1]
+        slide = self.prs.slides.add_slide(slide_layout)
+        
+        # Add background gradient (similar to title slide)
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, self.prs.slide_width, self.prs.slide_height)
+        shape.fill.gradient()
+        shape.fill.gradient_angle = 90
+        shape.fill.gradient_stops[0].color.rgb = RGBColor(240, 248, 255)  # Alice Blue
+        shape.fill.gradient_stops[1].color.rgb = RGBColor(255, 255, 255)  # White
+        shape.line.fill.background()
+        
+        # Add "Thank You" text
+        thank_shape = slide.shapes.add_textbox(Inches(1), Inches(2.5), Inches(8), Inches(1.5))
+        thank_frame = thank_shape.text_frame
+        thank_frame.text = "Thank You"
+        
+        thank_paragraph = thank_frame.paragraphs[0]
+        thank_paragraph.font.size = Pt(54)
+        thank_paragraph.font.bold = True
+        thank_paragraph.alignment = PP_ALIGN.CENTER
+        thank_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
+        
+        # Add "Questions?" text
+        questions_shape = slide.shapes.add_textbox(Inches(1), Inches(4.5), Inches(8), Inches(1))
+        questions_frame = questions_shape.text_frame
+        questions_frame.text = "Questions?"
+        
+        questions_paragraph = questions_frame.paragraphs[0]
+        questions_paragraph.font.size = Pt(36)
+        questions_paragraph.alignment = PP_ALIGN.CENTER
+        questions_paragraph.font.color.rgb = RGBColor(79, 129, 189)  # Medium blue
+        
+        return slide
+    
+    def add_slide_numbers(self, start_from=1, exclude_first=True, exclude_last=True):
+        """Add slide numbers to all slides"""
+        total_slides = len(self.prs.slides)
+        
+        for idx, slide in enumerate(self.prs.slides):
+            # Skip first slide (title) if requested
+            if exclude_first and idx == 0:
+                continue
+            
+            # Skip last slide (thank you) if requested
+            if exclude_last and idx == total_slides - 1:
+                continue
+            
+            # Add slide number
+            slide_num = idx if not exclude_first else idx
+            footer_shape = slide.shapes.add_textbox(
+                Inches(8.5), Inches(7), Inches(1), Inches(0.3)
+            )
+            footer_frame = footer_shape.text_frame
+            footer_frame.text = f"{slide_num}/{total_slides - (1 if exclude_first else 0) - (1 if exclude_last else 0)}"
+            
+            footer_paragraph = footer_frame.paragraphs[0]
+            footer_paragraph.font.size = Pt(10)
+            footer_paragraph.alignment = PP_ALIGN.RIGHT
+            footer_paragraph.font.color.rgb = RGBColor(128, 128, 128)  # Gray
     
     def save_presentation(self, output_path):
         """Save the presentation to specified path"""

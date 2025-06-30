@@ -86,9 +86,12 @@ class ChartGenerator:
                         x_label: str = "",
                         y_label: str = "",
                         orientation: str = "vertical",
-                        size: Tuple[float, float] = (8, 6)) -> BytesIO:
+                        size: Tuple[float, float] = (8, 6),
+                        add_value_labels: bool = True,
+                        add_gridlines: bool = True,
+                        gradient_fill: bool = True) -> BytesIO:
         """
-        Create a bar chart with brand styling
+        Create a bar chart with brand styling and enhanced visuals
         
         Args:
             data: Dictionary of labels to values
@@ -97,6 +100,9 @@ class ChartGenerator:
             y_label: Y-axis label
             orientation: 'vertical' or 'horizontal'
             size: Figure size in inches
+            add_value_labels: Add value labels on bars
+            add_gridlines: Add subtle gridlines
+            gradient_fill: Use gradient fills (simulated with transparency)
             
         Returns:
             BytesIO object containing the chart image
@@ -114,28 +120,45 @@ class ChartGenerator:
             sorted_data = sorted(zip(labels, values, colors), key=lambda x: x[1])
             labels, values, colors = zip(*sorted_data)
             
-            bars = ax.barh(labels, values, color=colors)
-            ax.set_xlabel(y_label)
+            bars = ax.barh(labels, values, color=colors, alpha=0.85 if gradient_fill else 1.0)
+            ax.set_xlabel(y_label if y_label else "Value ($)")
             ax.set_ylabel(x_label)
+            
+            # Add subtle gridlines
+            if add_gridlines:
+                ax.grid(axis='x', alpha=0.2, linestyle='--', linewidth=0.5)
+                ax.set_axisbelow(True)
         else:
-            bars = ax.bar(labels, values, color=colors)
+            bars = ax.bar(labels, values, color=colors, alpha=0.85 if gradient_fill else 1.0)
             ax.set_xlabel(x_label)
-            ax.set_ylabel(y_label)
+            ax.set_ylabel(y_label if y_label else "Value ($)")
             
             # Rotate x labels if needed
             if len(labels) > 5:
                 plt.xticks(rotation=45, ha='right')
+            
+            # Add subtle gridlines
+            if add_gridlines:
+                ax.grid(axis='y', alpha=0.2, linestyle='--', linewidth=0.5)
+                ax.set_axisbelow(True)
+        
+        # Add gradient effect with edge color
+        if gradient_fill:
+            for bar, color in zip(bars, colors):
+                bar.set_edgecolor(color)
+                bar.set_linewidth(2)
         
         # Add value labels on bars
-        self._add_bar_labels(ax, bars, orientation)
+        if add_value_labels:
+            self._add_bar_labels_enhanced(ax, bars, orientation, values)
         
-        # Set title
+        # Set title with subtitle for time period
         if title:
             ax.set_title(title, fontsize=self.brand_config['fonts']['title_size'], 
                         pad=20, fontweight='bold')
         
-        # Style the plot
-        self._style_chart(ax)
+        # Style the plot with enhanced aesthetics
+        self._style_chart_enhanced(ax)
         
         # Save to BytesIO
         buffer = BytesIO()
@@ -441,8 +464,52 @@ class ChartGenerator:
         
         return color_list[:n]
     
+    def _add_bar_labels_enhanced(self, ax, bars, orientation: str, values):
+        """Add enhanced value labels to bars with better formatting"""
+        for bar, value in zip(bars, values):
+            if orientation == 'horizontal':
+                width = bar.get_width()
+                label_x = width
+                label_y = bar.get_y() + bar.get_height() / 2
+                ha = 'left' if width >= 0 else 'right'
+                va = 'center'
+                offset = max(width * 0.02, 100000)  # Dynamic offset based on value
+                
+                # Format large numbers nicely
+                if abs(value) >= 1_000_000:
+                    label_text = f'${value/1_000_000:.1f}M'
+                elif abs(value) >= 1_000:
+                    label_text = f'${value/1_000:.0f}K'
+                else:
+                    label_text = f'${value:,.0f}'
+                
+                ax.text(label_x + offset, label_y, label_text,
+                       ha=ha, va=va, fontsize=10, fontweight='bold',
+                       bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                               edgecolor='none', alpha=0.7))
+            else:
+                height = bar.get_height()
+                label_x = bar.get_x() + bar.get_width() / 2
+                label_y = height
+                ha = 'center'
+                va = 'bottom' if height >= 0 else 'top'
+                offset = height * 0.02 if height >= 0 else -height * 0.02
+                
+                # Format large numbers nicely
+                if abs(value) >= 1_000_000:
+                    label_text = f'${value/1_000_000:.1f}M'
+                elif abs(value) >= 1_000:
+                    label_text = f'${value/1_000:.0f}K'
+                else:
+                    label_text = f'${value:,.0f}'
+                
+                ax.text(label_x, label_y + offset, label_text,
+                       ha=ha, va=va, fontsize=10, fontweight='bold',
+                       bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                               edgecolor='none', alpha=0.7))
+    
     def _add_bar_labels(self, ax, bars, orientation: str):
-        """Add value labels to bars"""
+        """Add value labels to bars (legacy method for compatibility)"""
         for bar in bars:
             if orientation == 'horizontal':
                 width = bar.get_width()
@@ -496,6 +563,25 @@ class ChartGenerator:
         
         # Set tick parameters
         ax.tick_params(colors='#666666', which='both')
+    
+    def _style_chart_enhanced(self, ax):
+        """Apply enhanced styling to charts with better aesthetics"""
+        # Remove all spines for cleaner look
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_linewidth(0.5)
+        ax.spines['left'].set_linewidth(0.5)
+        ax.spines['bottom'].set_color('#CCCCCC')
+        ax.spines['left'].set_color('#CCCCCC')
+        
+        # Set tick parameters
+        ax.tick_params(colors='#666666', which='both', length=5, width=0.5)
+        
+        # Format y-axis for currency
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000000:.1f}M' if x >= 1000000 else f'${x/1000:.0f}K' if x >= 1000 else f'${x:.0f}'))
+        
+        # Add subtle background
+        ax.set_facecolor('#FAFAFA')
     
     def save_chart_to_file(self, chart_buffer: BytesIO, filepath: str):
         """Save chart buffer to file"""

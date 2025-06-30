@@ -250,6 +250,14 @@ def generate_slides():
         # Create slides based on analysis
         slides_created = []
         
+        # Title slide
+        company_name = analysis.get('company_overview', {}).get('name', 'Business Presentation')
+        title_slide = generator.create_title_slide(
+            title=company_name,
+            subtitle="Financial Analysis & Performance Review"
+        )
+        slides_created.append("Title Slide")
+        
         # Financial summary slide(s)
         if 'financial_metrics' in analysis and analysis['financial_metrics']:
             result = generator.create_financial_summary_slide(
@@ -279,7 +287,7 @@ def generate_slides():
             slides_created.append("Key Insights")
         
         # If no specific slides were created, create a summary slide
-        if not slides_created:
+        if len(slides_created) <= 1:  # Only title slide
             summary_data = {
                 "documents_processed": len(all_documents),
                 "files": [doc['filename'] for doc in all_documents]
@@ -289,6 +297,13 @@ def generate_slides():
                 {"summary": f"Files: {', '.join([doc['filename'] for doc in all_documents])}"}
             )
             slides_created.append("Processing Summary")
+        
+        # Thank you slide
+        thank_you_slide = generator.create_thank_you_slide()
+        slides_created.append("Thank You")
+        
+        # Add slide numbers
+        generator.add_slide_numbers(exclude_first=True, exclude_last=True)
         
         # 4. Save and return
         output_path = tempfile.mktemp(suffix='.pptx')
