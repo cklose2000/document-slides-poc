@@ -120,67 +120,231 @@ class SlideGenerator:
             print(f"Has table position: {'table' in layout_rec.element_positions}")
             print(f"Has chart position: {'chart' in layout_rec.element_positions}")
         
-        # Fallback to original implementation
-        # Use blank layout (index 6 is typically blank)
+        # Create separate slides for table and chart
+        slides_created = []
+        
+        # First slide: Metrics Table
         slide_layout = self.prs.slide_layouts[6] if len(self.prs.slide_layouts) > 6 else self.prs.slide_layouts[-1]
-        slide = self.prs.slides.add_slide(slide_layout)
+        table_slide = self.prs.slides.add_slide(slide_layout)
         
-        # Add title with smart sizing
+        # Add title for table slide
         title_font_size = layout_rec.font_sizes.get('title', 36) if layout_rec else 36
-        title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
+        title_shape = table_slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
-        title_frame.text = "Financial Performance Summary"
+        title_frame.text = "Key Financial Metrics"
         
-        # Style the title with layout-aware sizing
+        # Style the title
         title_paragraph = title_frame.paragraphs[0]
         title_paragraph.font.size = Pt(title_font_size)
         title_paragraph.font.bold = True
         title_paragraph.alignment = PP_ALIGN.CENTER
         title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
         
-        # Use smart layout positioning if available
-        if layout_rec and 'table' in layout_rec.element_positions and 'chart' in layout_rec.element_positions:
-            # Dashboard layout with table and chart
-            print("USING DASHBOARD LAYOUT WITH POSITIONED ELEMENTS!")
-            table_pos = layout_rec.element_positions['table']
-            chart_pos = layout_rec.element_positions['chart']
-            
-            # Add metrics table with layout positioning
-            if layout_rec.filtered_metrics:
-                # Use filtered metrics if available
-                print(f"Adding table at position: {table_pos} with {len(layout_rec.filtered_metrics)} filtered metrics")
-                self._add_metrics_table_positioned(slide, layout_rec.filtered_metrics, layout_rec, table_pos)
-            elif data and isinstance(data, dict):
-                print(f"Adding table at position: {table_pos}")
-                self._add_metrics_table_positioned(slide, data, layout_rec, table_pos)
-            
-            # Add chart with layout positioning
-            if self.chart_generator:
-                if layout_rec.filtered_metrics:
-                    print(f"Adding chart at position: {chart_pos} with filtered metrics")
-                    self._try_add_chart_positioned(slide, layout_rec.filtered_metrics, layout_rec, chart_pos)
-                elif data and isinstance(data, dict):
-                    print(f"Adding chart at position: {chart_pos}")
-                    self._try_add_chart_positioned(slide, data, layout_rec, chart_pos)
-        else:
-            # Fallback to original layout logic
-            chart_created = False
-            if data and isinstance(data, dict) and self.chart_generator:
-                chart_created = self._try_add_chart(slide, data, Inches(5.5), Inches(1.8), Inches(4), Inches(3.5))
-            
-            # Add metrics table (adjust size if chart was added)
-            if data and isinstance(data, dict):
-                if chart_created:
-                    # Smaller table to make room for chart
-                    self._add_metrics_table(slide, data, Inches(0.5), Inches(2), table_width=Inches(4.5))
-                else:
-                    # Full-width table
-                    self._add_metrics_table(slide, data, Inches(1), Inches(2))
+        # Add metrics table with full slide space
+        if layout_rec and layout_rec.filtered_metrics:
+            self._add_metrics_table_full_slide(table_slide, layout_rec.filtered_metrics, layout_rec)
+        elif data and isinstance(data, dict):
+            self._add_metrics_table_full_slide(table_slide, data, layout_rec)
         
         # Add source attribution
-        self.add_source_attribution(slide, source_refs)
+        self.add_source_attribution(table_slide, source_refs)
+        slides_created.append(table_slide)
         
-        return slide
+        # Second slide: Chart (if we have data for it)
+        if self.chart_generator and data and isinstance(data, dict):
+            metrics_to_chart = layout_rec.filtered_metrics if (layout_rec and layout_rec.filtered_metrics) else data
+            
+            # Check if we have enough data for a chart
+            chart_data = {}
+            for metric_name, metric_info in metrics_to_chart.items():
+                if isinstance(metric_info, dict) and 'value' in metric_info:
+                    value = self._extract_numeric_value(metric_info['value'])
+                    if value is not None:
+                        try:
+                            from .layout_engine import MetricsPrioritizer
+                            clean_name = MetricsPrioritizer.format_metric_name(metric_name)
+                        except:
+                            clean_name = self._clean_metric_name(metric_name)
+                        chart_data[clean_name] = value
+            
+            if len(chart_data) >= 2:
+                chart_slide = self.prs.slides.add_slide(slide_layout)
+                
+                # Add title for chart slide
+                title_shape = chart_slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
+                title_frame = title_shape.text_frame
+                title_frame.text = "Financial Performance Chart"
+                
+                # Style the title
+                title_paragraph = title_frame.paragraphs[0]
+                title_paragraph.font.size = Pt(title_font_size)
+                title_paragraph.font.bold = True
+                title_paragraph.alignment = PP_ALIGN.CENTER
+                title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
+                
+                # Add chart with full slide space
+                self._add_chart_full_slide(chart_slide, metrics_to_chart, layout_rec)
+                
+                # Add source attribution
+                self.add_source_attribution(chart_slide, source_refs)
+                slides_created.append(chart_slide)
+        
+        return slides_created
+    
+    def _add_metrics_table_full_slide(self, slide, metrics_data, layout_rec):
+        """Add a metrics table using full slide space"""
+        if not metrics_data:
+            return
+        
+        # Use full slide area for table (center it nicely)
+        left = 1.0
+        top = 1.8
+        width = 8.0
+        height = 4.5
+        
+        rows = min(len(metrics_data) + 1, 10)  # +1 for header, max 10 rows
+        cols = 3  # Metric, Value, Source
+        
+        # Add table shape
+        table_shape = slide.shapes.add_table(
+            rows, cols, 
+            Inches(left), Inches(top), 
+            Inches(width), Inches(height)
+        )
+        table = table_shape.table
+        
+        # Set column widths proportionally
+        table.columns[0].width = Inches(3.5)  # Metric name
+        table.columns[1].width = Inches(2.5)  # Value
+        table.columns[2].width = Inches(2.0)  # Source
+        
+        # Add headers with good font sizing
+        headers = ['Key Metrics', 'Value', 'Source']
+        header_font_size = 16
+        
+        for i, header in enumerate(headers):
+            cell = table.cell(0, i)
+            cell.text = header
+            self._style_header_cell(cell, Pt(header_font_size))
+        
+        # Add data rows with good spacing
+        row_idx = 1
+        body_font_size = 14
+        
+        for metric_name, metric_info in metrics_data.items():
+            if row_idx >= rows:
+                break
+            
+            # Metric name (clean it up)
+            try:
+                from .layout_engine import MetricsPrioritizer
+                clean_name = MetricsPrioritizer.format_metric_name(metric_name)
+            except:
+                clean_name = str(metric_name).replace('_', ' ').title()
+            
+            table.cell(row_idx, 0).text = clean_name
+            
+            # Value (format properly)
+            value = metric_info.get('value', 'N/A')
+            if isinstance(value, str) and any(c in value.lower() for c in ['m', 'k', '$']):
+                formatted_value = f"${value}" if not value.startswith('$') else value
+            elif isinstance(value, (int, float)):
+                if abs(value) > 1000000:
+                    formatted_value = f"${value/1000000:.1f}M"
+                elif abs(value) > 1000:
+                    formatted_value = f"${value/1000:.0f}K"
+                else:
+                    formatted_value = f"${value:,.0f}"
+            else:
+                formatted_value = str(value)
+            
+            table.cell(row_idx, 1).text = formatted_value
+            
+            # Source
+            source_info = metric_info.get('source', {})
+            if isinstance(source_info, dict):
+                doc_name = source_info.get('document', 'Unknown')
+                if doc_name != 'Unknown':
+                    source_text = doc_name.replace('.pdf', '').replace('.xlsx', '').replace('_', ' ').title()
+                else:
+                    source_text = 'Financial Report'
+            else:
+                source_text = 'Financial Report'
+            
+            table.cell(row_idx, 2).text = source_text
+            
+            # Style data cells
+            for col in range(3):
+                cell = table.cell(row_idx, col)
+                for paragraph in cell.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.size = Pt(body_font_size)
+                        if col == 1:  # Value column - make it bold
+                            run.font.bold = True
+                            run.font.color.rgb = RGBColor(0, 102, 51)  # Dark green
+            
+            row_idx += 1
+    
+    def _add_chart_full_slide(self, slide, metrics_data, layout_rec):
+        """Add a chart using full slide space"""
+        if not self.chart_generator:
+            return
+        
+        try:
+            # Prepare chart data from financial metrics
+            chart_data = {}
+            for metric_name, metric_info in metrics_data.items():
+                if isinstance(metric_info, dict) and 'value' in metric_info:
+                    value = self._extract_numeric_value(metric_info['value'])
+                    if value is not None:
+                        # Use the same clean name formatter as the table
+                        try:
+                            from .layout_engine import MetricsPrioritizer
+                            clean_name = MetricsPrioritizer.format_metric_name(metric_name)
+                        except:
+                            clean_name = self._clean_metric_name(metric_name)
+                        chart_data[clean_name] = value
+            
+            # Only create chart if we have 2+ metrics
+            if len(chart_data) < 2:
+                return
+            
+            # Use full slide area for chart
+            left = 0.5
+            top = 1.5
+            width = 9.0
+            height = 5.5
+            
+            # Generate horizontal bar chart for better readability
+            chart_buffer = self.chart_generator.create_bar_chart(
+                chart_data,
+                title="",  # No title for cleaner look
+                x_label="Value ($)",
+                y_label="",
+                orientation="horizontal",  # Horizontal bars for better metric names
+                size=(width, height)
+            )
+            
+            # Save chart to temporary file
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                tmp_file.write(chart_buffer.getvalue())
+                chart_path = tmp_file.name
+            
+            # Add chart to slide
+            slide.shapes.add_picture(
+                chart_path, 
+                Inches(left), Inches(top), 
+                Inches(width), Inches(height)
+            )
+            
+            # Clean up temporary file
+            try:
+                os.unlink(chart_path)
+            except:
+                pass
+            
+        except Exception as e:
+            print(f"Error adding full slide chart: {str(e)}")
     
     def _add_metrics_table_positioned(self, slide, metrics_data, layout_rec, table_pos):
         """Add a metrics table using smart layout positioning"""
@@ -430,7 +594,7 @@ class SlideGenerator:
                 run.font.size = font_size if font_size else Pt(12)
     
     def create_company_overview_slide(self, company_data, source_refs):
-        """Create a company overview slide"""
+        """Create a company overview slide with enhanced visual design"""
         # Use branded generator if available
         if self.use_branding:
             return self.branded_generator.create_company_overview_slide(company_data, source_refs)
@@ -439,7 +603,7 @@ class SlideGenerator:
         slide_layout = self.prs.slide_layouts[6] if len(self.prs.slide_layouts) > 6 else self.prs.slide_layouts[-1]
         slide = self.prs.slides.add_slide(slide_layout)
         
-        # Add title with emoji and better styling
+        # Add title with better styling
         title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
         title_frame.text = "Company Overview"
@@ -451,17 +615,71 @@ class SlideGenerator:
         title_paragraph.alignment = PP_ALIGN.CENTER
         title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
         
-        # Add company info
+        # Add a decorative shape for visual interest
+        left = Inches(0.5)
+        top = Inches(1.8)
+        width = Inches(9)
+        height = Inches(0.02)
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = RGBColor(79, 129, 189)  # Blue accent
+        shape.line.fill.background()
+        
+        # Add company info with enhanced layout
         if company_data:
-            self._add_company_info(slide, company_data, Inches(1), Inches(2))
+            self._add_company_info_enhanced(slide, company_data, Inches(1), Inches(2.2))
         
         # Add source attribution
         self.add_source_attribution(slide, source_refs)
         
         return slide
     
+    def _add_company_info_enhanced(self, slide, company_data, left, top):
+        """Add company information with enhanced visual layout"""
+        # Company Name (Large)
+        if 'name' in company_data:
+            name_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(0.8))
+            name_frame = name_shape.text_frame
+            name_frame.text = company_data['name']
+            name_paragraph = name_frame.paragraphs[0]
+            name_paragraph.font.size = Pt(28)
+            name_paragraph.font.bold = True
+            name_paragraph.font.color.rgb = RGBColor(37, 64, 97)
+            top += Inches(1.0)
+        
+        # Industry (Medium with background)
+        if 'industry' in company_data:
+            # Add background shape
+            bg_shape = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                left - Inches(0.2), top - Inches(0.1),
+                Inches(8.4), Inches(0.8)
+            )
+            bg_shape.fill.solid()
+            bg_shape.fill.fore_color.rgb = RGBColor(240, 248, 255)  # Light blue background
+            bg_shape.line.fill.background()
+            
+            industry_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(0.6))
+            industry_frame = industry_shape.text_frame
+            industry_frame.text = f"Industry: {company_data['industry']}"
+            industry_paragraph = industry_frame.paragraphs[0]
+            industry_paragraph.font.size = Pt(20)
+            industry_paragraph.font.color.rgb = RGBColor(79, 129, 189)
+            top += Inches(1.2)
+        
+        # Description (Body text)
+        if 'description' in company_data:
+            desc_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(2.5))
+            desc_frame = desc_shape.text_frame
+            desc_frame.word_wrap = True
+            desc_frame.text = company_data['description']
+            desc_paragraph = desc_frame.paragraphs[0]
+            desc_paragraph.font.size = Pt(16)
+            desc_paragraph.line_spacing = 1.5
+            desc_paragraph.font.color.rgb = RGBColor(64, 64, 64)
+    
     def _add_company_info(self, slide, company_data, left, top):
-        """Add company information text box"""
+        """Add company information text box (legacy method)"""
         info_shape = slide.shapes.add_textbox(left, top, Inches(8), Inches(4))
         info_frame = info_shape.text_frame
         
@@ -522,7 +740,7 @@ class SlideGenerator:
             paragraph.alignment = PP_ALIGN.CENTER
     
     def create_data_insights_slide(self, insights_data, source_refs):
-        """Create a slide with key data insights"""
+        """Create a slide with key data insights with enhanced visual design"""
         # Use branded generator if available
         if self.use_branding:
             return self.branded_generator.create_data_insights_slide(insights_data, source_refs)
@@ -531,7 +749,7 @@ class SlideGenerator:
         slide_layout = self.prs.slide_layouts[6] if len(self.prs.slide_layouts) > 6 else self.prs.slide_layouts[-1]
         slide = self.prs.slides.add_slide(slide_layout)
         
-        # Add title with emoji and better styling
+        # Add title with better styling
         title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
         title_frame.text = "Key Business Insights"
@@ -543,14 +761,109 @@ class SlideGenerator:
         title_paragraph.alignment = PP_ALIGN.CENTER
         title_paragraph.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
         
-        # Add insights as bullet points
+        # Add a decorative shape for visual interest
+        left = Inches(0.5)
+        top = Inches(1.8)
+        width = Inches(9)
+        height = Inches(0.02)
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = RGBColor(79, 129, 189)  # Blue accent
+        shape.line.fill.background()
+        
+        # Add insights with enhanced visual design
         if insights_data:
-            self._add_insights_bullets(slide, insights_data, Inches(1), Inches(2))
+            self._add_insights_enhanced(slide, insights_data, Inches(0.8), Inches(2.2))
         
         # Add source attribution
         self.add_source_attribution(slide, source_refs)
         
         return slide
+    
+    def _add_insights_enhanced(self, slide, insights, left, top):
+        """Add insights with enhanced visual design"""
+        current_top = top
+        
+        if isinstance(insights, list):
+            for i, insight in enumerate(insights):
+                # Add background shape for each insight
+                bg_shape = slide.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    left - Inches(0.2), current_top - Inches(0.1),
+                    Inches(8.6), Inches(0.9)
+                )
+                bg_shape.fill.solid()
+                # Alternate colors for visual interest
+                if i % 2 == 0:
+                    bg_shape.fill.fore_color.rgb = RGBColor(245, 250, 255)  # Very light blue
+                else:
+                    bg_shape.fill.fore_color.rgb = RGBColor(250, 250, 250)  # Very light gray
+                bg_shape.line.fill.background()
+                
+                # Add bullet point shape
+                bullet_shape = slide.shapes.add_shape(
+                    MSO_SHAPE.OVAL,
+                    left, current_top + Inches(0.15),
+                    Inches(0.3), Inches(0.3)
+                )
+                bullet_shape.fill.solid()
+                bullet_shape.fill.fore_color.rgb = RGBColor(79, 129, 189)  # Blue
+                bullet_shape.line.fill.background()
+                
+                # Add insight text
+                text_shape = slide.shapes.add_textbox(
+                    left + Inches(0.5), current_top,
+                    Inches(7.5), Inches(0.7)
+                )
+                text_frame = text_shape.text_frame
+                text_frame.text = insight
+                text_frame.word_wrap = True
+                
+                paragraph = text_frame.paragraphs[0]
+                paragraph.font.size = Pt(18)
+                paragraph.font.color.rgb = RGBColor(37, 64, 97)
+                
+                current_top += Inches(1.1)
+        
+        elif isinstance(insights, dict):
+            for i, (key, value) in enumerate(insights.items()):
+                # Similar layout but with key-value format
+                bg_shape = slide.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    left - Inches(0.2), current_top - Inches(0.1),
+                    Inches(8.6), Inches(0.9)
+                )
+                bg_shape.fill.solid()
+                if i % 2 == 0:
+                    bg_shape.fill.fore_color.rgb = RGBColor(245, 250, 255)
+                else:
+                    bg_shape.fill.fore_color.rgb = RGBColor(250, 250, 250)
+                bg_shape.line.fill.background()
+                
+                # Add bullet point
+                bullet_shape = slide.shapes.add_shape(
+                    MSO_SHAPE.OVAL,
+                    left, current_top + Inches(0.15),
+                    Inches(0.3), Inches(0.3)
+                )
+                bullet_shape.fill.solid()
+                bullet_shape.fill.fore_color.rgb = RGBColor(79, 129, 189)
+                bullet_shape.line.fill.background()
+                
+                # Add text
+                text_shape = slide.shapes.add_textbox(
+                    left + Inches(0.5), current_top,
+                    Inches(7.5), Inches(0.7)
+                )
+                text_frame = text_shape.text_frame
+                text_frame.text = f"{key}: {value}"
+                text_frame.word_wrap = True
+                
+                paragraph = text_frame.paragraphs[0]
+                paragraph.font.size = Pt(18)
+                paragraph.font.color.rgb = RGBColor(37, 64, 97)
+                
+                current_top += Inches(1.1)
     
     def _add_insights_bullets(self, slide, insights, left, top):
         """Add insights as bullet points with better styling"""

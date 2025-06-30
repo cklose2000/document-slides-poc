@@ -250,13 +250,17 @@ def generate_slides():
         # Create slides based on analysis
         slides_created = []
         
-        # Financial summary slide
+        # Financial summary slide(s)
         if 'financial_metrics' in analysis and analysis['financial_metrics']:
-            slide = generator.create_financial_summary_slide(
+            result = generator.create_financial_summary_slide(
                 analysis['financial_metrics'],
                 analysis.get('source_attributions', {})
             )
-            slides_created.append("Financial Summary")
+            # Handle both single slide and list of slides
+            if isinstance(result, list):
+                slides_created.extend(["Financial Metrics", "Financial Chart"])
+            else:
+                slides_created.append("Financial Summary")
         
         # Company overview slide
         if 'company_overview' in analysis:
