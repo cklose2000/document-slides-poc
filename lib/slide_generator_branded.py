@@ -761,14 +761,13 @@ class BrandedSlideGenerator:
             data = {k: v for k, v in data.items() if v > 0}
             
             if data and hasattr(self, 'chart_generator'):
-                # Generate pie chart
-                chart_options = {
-                    'title': 'Confidence Distribution',
-                    'colors': ['#00FF00', '#FFA500', '#FF8C00', '#FF0000'],
-                    'figsize': (4, 3.5)
-                }
-                
-                chart_buffer = self.chart_generator.create_pie_chart(data, **chart_options)
+                # Generate pie chart - using only supported parameters
+                chart_buffer = self.chart_generator.create_pie_chart(
+                    data, 
+                    title='Confidence Distribution',
+                    show_percentages=True,
+                    size=(4, 3.5)
+                )
                 
                 if chart_buffer:
                     # Add chart to slide
