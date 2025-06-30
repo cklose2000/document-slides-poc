@@ -17,12 +17,14 @@ try:
     from .chart_generator import ChartGenerator
     from .visual_effects import VisualEffectsEngine
     from .simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
+    from .rich_slide_layouts import RichSlideLayouts
 except ImportError:
     from template_parser import BrandManager, TemplateParser
     from source_tracker import SourceTracker
     from chart_generator import ChartGenerator
     from visual_effects import VisualEffectsEngine
     from simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
+    from rich_slide_layouts import RichSlideLayouts
 import os
 import re
 from typing import Dict, List, Any, Optional, Tuple
@@ -50,6 +52,9 @@ class BrandedSlideGenerator:
         # Initialize visual effects engines for modern styling
         self.visual_effects = VisualEffectsEngine(self.brand_config)
         self.simple_effects = SimpleVisualEffects(self.brand_config)
+        
+        # Initialize rich layouts for substantial slides
+        self.rich_layouts = RichSlideLayouts(self.brand_config)
         
         # Initialize presentation
         self._init_presentation()
@@ -155,10 +160,16 @@ class BrandedSlideGenerator:
         title_shape = None
         
         for shape in slide.shapes:
-            if hasattr(shape, 'placeholder_format') and shape.placeholder_format:
-                if 'TITLE' in str(shape.placeholder_format.type):
-                    title_shape = shape
-                    break
+            try:
+                # Check if shape is a placeholder first
+                if hasattr(shape, 'is_placeholder') and shape.is_placeholder:
+                    # Now safe to access placeholder_format
+                    if shape.placeholder_format and 'TITLE' in str(shape.placeholder_format.type):
+                        title_shape = shape
+                        break
+            except:
+                # Skip shapes that can't be checked
+                continue
         
         # If no title placeholder, create text box
         if title_shape is None:
@@ -1403,5 +1414,76 @@ class BrandedSlideGenerator:
             # Apply brand colors to slide numbers
             accent_color = self._get_brand_color('accent2', '#808080')
             footer_paragraph.font.color.rgb = self._hex_to_rgb(accent_color)
+        
+        return slide
+    
+    # Rich Layout Methods for Substantial Slides
+    def create_executive_dashboard(self, metrics: Dict[str, Any], 
+                                 title: str = "Executive Dashboard") -> Any:
+        """Create an executive dashboard slide with KPI cards"""
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Create the dashboard
+        self.rich_layouts.create_executive_dashboard_slide(slide, metrics, title)
+        
+        return slide
+    
+    def create_multi_chart_analysis(self, data: Dict[str, Any],
+                                  title: str = "Financial Analysis") -> Any:
+        """Create a slide with multiple charts for comprehensive analysis"""
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'chart', self.brand_config)
+        
+        # Create the multi-chart layout
+        self.rich_layouts.create_multi_chart_analysis_slide(slide, data, title)
+        
+        return slide
+    
+    def create_timeline_roadmap(self, milestones: List[Dict[str, Any]] = None,
+                              title: str = "Strategic Roadmap") -> Any:
+        """Create a timeline/roadmap visualization"""
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Create the timeline
+        self.rich_layouts.create_timeline_roadmap_slide(slide, milestones, title)
+        
+        return slide
+    
+    def create_comparison_matrix(self, comparison_data: Dict[str, Any] = None,
+                               title: str = "Competitive Analysis") -> Any:
+        """Create a comparison matrix slide"""
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Create the comparison matrix
+        self.rich_layouts.create_comparison_matrix_slide(slide, comparison_data, title)
+        
+        return slide
+    
+    def create_swot_analysis(self, swot_data: Dict[str, List[str]] = None,
+                           title: str = "SWOT Analysis") -> Any:
+        """Create a SWOT analysis slide with 2x2 matrix"""
+        layout = self._get_layout_for_content('content')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Apply visual effects
+        enhance_slide_simply(slide, 'content', self.brand_config)
+        
+        # Create the SWOT matrix
+        self.rich_layouts.create_swot_analysis_slide(slide, swot_data, title)
         
         return slide

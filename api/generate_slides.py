@@ -390,6 +390,52 @@ def generate_slides():
             )
             slides_created.append("Key Insights")
         
+        # Add rich slides if using branded generator
+        if hasattr(generator, 'create_executive_dashboard'):
+            print("Adding rich slides to presentation...")
+            
+            # Executive Dashboard
+            try:
+                dashboard_metrics = analysis.get('financial_metrics', {})
+                slide = generator.create_executive_dashboard(dashboard_metrics)
+                slides_created.append("Executive Dashboard")
+                print("Added Executive Dashboard slide")
+            except Exception as e:
+                print(f"Failed to create executive dashboard: {e}")
+            
+            # Multi-chart Analysis
+            try:
+                chart_data = analysis.get('charts_data', {})
+                slide = generator.create_multi_chart_analysis(chart_data)
+                slides_created.append("Financial Analysis")
+                print("Added Multi-chart Analysis slide")
+            except Exception as e:
+                print(f"Failed to create multi-chart analysis: {e}")
+            
+            # Timeline Roadmap
+            try:
+                slide = generator.create_timeline_roadmap()
+                slides_created.append("Strategic Roadmap")
+                print("Added Timeline Roadmap slide")
+            except Exception as e:
+                print(f"Failed to create timeline roadmap: {e}")
+            
+            # SWOT Analysis
+            try:
+                slide = generator.create_swot_analysis()
+                slides_created.append("SWOT Analysis")
+                print("Added SWOT Analysis slide")
+            except Exception as e:
+                print(f"Failed to create SWOT analysis: {e}")
+            
+            # Competitive Analysis
+            try:
+                slide = generator.create_comparison_matrix()
+                slides_created.append("Competitive Analysis")
+                print("Added Competitive Analysis slide")
+            except Exception as e:
+                print(f"Failed to create comparison matrix: {e}")
+        
         # If no specific slides were created, create a summary slide
         if len(slides_created) <= 1:  # Only title slide
             summary_data = {
