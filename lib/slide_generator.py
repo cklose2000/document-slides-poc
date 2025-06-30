@@ -129,7 +129,7 @@ class SlideGenerator:
         title_font_size = layout_rec.font_sizes.get('title', 36) if layout_rec else 36
         title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
-        title_frame.text = "📊 Financial Performance Summary"
+        title_frame.text = "Financial Performance Summary"
         
         # Style the title with layout-aware sizing
         title_paragraph = title_frame.paragraphs[0]
@@ -146,14 +146,22 @@ class SlideGenerator:
             chart_pos = layout_rec.element_positions['chart']
             
             # Add metrics table with layout positioning
-            if data and isinstance(data, dict):
+            if layout_rec.filtered_metrics:
+                # Use filtered metrics if available
+                print(f"Adding table at position: {table_pos} with {len(layout_rec.filtered_metrics)} filtered metrics")
+                self._add_metrics_table_positioned(slide, layout_rec.filtered_metrics, layout_rec, table_pos)
+            elif data and isinstance(data, dict):
                 print(f"Adding table at position: {table_pos}")
                 self._add_metrics_table_positioned(slide, data, layout_rec, table_pos)
             
             # Add chart with layout positioning
-            if data and isinstance(data, dict) and self.chart_generator:
-                print(f"Adding chart at position: {chart_pos}")
-                self._try_add_chart_positioned(slide, data, layout_rec, chart_pos)
+            if self.chart_generator:
+                if layout_rec.filtered_metrics:
+                    print(f"Adding chart at position: {chart_pos} with filtered metrics")
+                    self._try_add_chart_positioned(slide, layout_rec.filtered_metrics, layout_rec, chart_pos)
+                elif data and isinstance(data, dict):
+                    print(f"Adding chart at position: {chart_pos}")
+                    self._try_add_chart_positioned(slide, data, layout_rec, chart_pos)
         else:
             # Fallback to original layout logic
             chart_created = False
@@ -215,11 +223,12 @@ class SlideGenerator:
                 break
             
             # Metric name (clean it up)
-            clean_name = str(metric_name).replace('_', ' ').title()
-            if clean_name.lower() == 'revenue':
-                clean_name = '📈 Revenue'
-            elif clean_name.lower() == 'profit':
-                clean_name = '💰 Profit'
+            # Import the formatter at the top of the method if needed
+            try:
+                from .layout_engine import MetricsPrioritizer
+                clean_name = MetricsPrioritizer.format_metric_name(metric_name)
+            except:
+                clean_name = str(metric_name).replace('_', ' ').title()
             
             table.cell(row_idx, 0).text = clean_name
             
@@ -276,7 +285,12 @@ class SlideGenerator:
                 if isinstance(metric_info, dict) and 'value' in metric_info:
                     value = self._extract_numeric_value(metric_info['value'])
                     if value is not None:
-                        clean_name = self._clean_metric_name(metric_name)
+                        # Use the same clean name formatter as the table
+                        try:
+                            from .layout_engine import MetricsPrioritizer
+                            clean_name = MetricsPrioritizer.format_metric_name(metric_name)
+                        except:
+                            clean_name = self._clean_metric_name(metric_name)
                         chart_data[clean_name] = value
             
             # Only create chart if we have 2+ metrics
@@ -285,11 +299,13 @@ class SlideGenerator:
             
             left, top, width, height = chart_pos
             
-            # Generate chart with layout-specific sizing
+            # Generate horizontal bar chart for better readability
             chart_buffer = self.chart_generator.create_bar_chart(
                 chart_data,
-                title="Key Metrics",
-                y_label="Value ($)",
+                title="",  # No title for cleaner look
+                x_label="Value ($)",
+                y_label="",
+                orientation="horizontal",  # Horizontal bars for better metric names
                 size=(width, height)
             )
             
@@ -349,11 +365,12 @@ class SlideGenerator:
                 break
             
             # Metric name (clean it up)
-            clean_name = str(metric_name).replace('_', ' ').title()
-            if clean_name.lower() == 'revenue':
-                clean_name = '📈 Revenue'
-            elif clean_name.lower() == 'profit':
-                clean_name = '💰 Profit'
+            # Import the formatter at the top of the method if needed
+            try:
+                from .layout_engine import MetricsPrioritizer
+                clean_name = MetricsPrioritizer.format_metric_name(metric_name)
+            except:
+                clean_name = str(metric_name).replace('_', ' ').title()
             
             table.cell(row_idx, 0).text = clean_name
             
@@ -425,7 +442,7 @@ class SlideGenerator:
         # Add title with emoji and better styling
         title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
-        title_frame.text = "🏢 Company Overview"
+        title_frame.text = "Company Overview"
         
         # Style the title
         title_paragraph = title_frame.paragraphs[0]
@@ -517,7 +534,7 @@ class SlideGenerator:
         # Add title with emoji and better styling
         title_shape = slide.shapes.add_textbox(Inches(1), Inches(0.3), Inches(8), Inches(1.2))
         title_frame = title_shape.text_frame
-        title_frame.text = "💡 Key Business Insights"
+        title_frame.text = "Key Business Insights"
         
         # Style the title
         title_paragraph = title_frame.paragraphs[0]
@@ -542,14 +559,10 @@ class SlideGenerator:
         bullets_frame.margin_left = Inches(0.2)
         bullets_frame.margin_top = Inches(0.1)
         
-        # Define bullet emojis for visual appeal
-        bullet_icons = ['🚀', '📊', '💎', '⭐', '🎯']
-        
         if isinstance(insights, list):
             for i, insight in enumerate(insights):
-                bullet_icon = bullet_icons[i % len(bullet_icons)]
                 if i == 0:
-                    bullets_frame.text = f"{bullet_icon} {insight}"
+                    bullets_frame.text = f"• {insight}"
                     # Style first paragraph
                     p = bullets_frame.paragraphs[0]
                     p.font.size = Pt(18)
@@ -558,7 +571,7 @@ class SlideGenerator:
                     p.font.color.rgb = RGBColor(37, 64, 97)  # Dark blue
                 else:
                     p = bullets_frame.add_paragraph()
-                    p.text = f"{bullet_icon} {insight}"
+                    p.text = f"• {insight}"
                     p.font.size = Pt(18)
                     p.font.bold = True
                     p.space_before = Pt(8)
@@ -568,8 +581,7 @@ class SlideGenerator:
             first = True
             i = 0
             for key, value in insights.items():
-                bullet_icon = bullet_icons[i % len(bullet_icons)]
-                text = f"{bullet_icon} {key}: {value}"
+                text = f"• {key}: {value}"
                 if first:
                     bullets_frame.text = text
                     p = bullets_frame.paragraphs[0]

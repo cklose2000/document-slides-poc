@@ -36,12 +36,12 @@ class ChartGenerator:
         """Get default brand configuration if none provided"""
         return {
             'colors': {
-                'primary': '#4F81BD',
-                'secondary': '#F79646',
-                'accent1': '#9BBB59',
-                'accent2': '#8064A2',
+                'primary': '#1f77b4',  # Professional blue
+                'secondary': '#ff7f0e',  # Complementary orange
+                'accent1': '#2ca02c',  # Green for positive
+                'accent2': '#d62728',  # Red for negative
                 'background': '#FFFFFF',
-                'text': '#000000'
+                'text': '#333333'  # Softer than pure black
             },
             'fonts': {
                 'title_font': 'Arial',
@@ -110,6 +110,10 @@ class ChartGenerator:
         colors = self._get_chart_colors(len(labels))
         
         if orientation == 'horizontal':
+            # Sort values for better visual hierarchy
+            sorted_data = sorted(zip(labels, values, colors), key=lambda x: x[1])
+            labels, values, colors = zip(*sorted_data)
+            
             bars = ax.barh(labels, values, color=colors)
             ax.set_xlabel(y_label)
             ax.set_ylabel(x_label)
@@ -446,9 +450,18 @@ class ChartGenerator:
                 label_y = bar.get_y() + bar.get_height() / 2
                 ha = 'left' if width >= 0 else 'right'
                 va = 'center'
-                offset = 3 if width >= 0 else -3
-                ax.text(label_x + offset, label_y, f'{width:,.0f}',
-                       ha=ha, va=va, fontsize=10)
+                offset = width * 0.01 if width >= 0 else -width * 0.01  # Proportional offset
+                
+                # Format large numbers nicely
+                if abs(width) >= 1_000_000:
+                    label_text = f'${width/1_000_000:.1f}M'
+                elif abs(width) >= 1_000:
+                    label_text = f'${width/1_000:.0f}K'
+                else:
+                    label_text = f'${width:,.0f}'
+                
+                ax.text(label_x + offset, label_y, label_text,
+                       ha=ha, va=va, fontsize=9, fontweight='bold')
             else:
                 height = bar.get_height()
                 label_x = bar.get_x() + bar.get_width() / 2
@@ -456,8 +469,17 @@ class ChartGenerator:
                 ha = 'center'
                 va = 'bottom' if height >= 0 else 'top'
                 offset = 3 if height >= 0 else -3
-                ax.text(label_x, label_y + offset, f'{height:,.0f}',
-                       ha=ha, va=va, fontsize=10)
+                
+                # Format large numbers nicely
+                if abs(height) >= 1_000_000:
+                    label_text = f'${height/1_000_000:.1f}M'
+                elif abs(height) >= 1_000:
+                    label_text = f'${height/1_000:.0f}K'
+                else:
+                    label_text = f'${height:,.0f}'
+                
+                ax.text(label_x, label_y + offset, label_text,
+                       ha=ha, va=va, fontsize=9, fontweight='bold')
     
     def _style_chart(self, ax):
         """Apply consistent styling to charts"""

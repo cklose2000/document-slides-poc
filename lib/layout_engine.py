@@ -9,6 +9,7 @@ from typing import Dict, List, Any, Optional, Tuple
 import re
 from dataclasses import dataclass
 from enum import Enum
+from collections import OrderedDict
 
 class ContentType(Enum):
     """Types of content for layout decisions"""
@@ -45,6 +46,150 @@ class LayoutRecommendation:
     max_items_per_slide: int
     split_recommendation: bool
     reasoning: List[str]
+    filtered_metrics: Optional[Dict[str, Any]] = None  # Prioritized metrics for display
+
+class MetricsPrioritizer:
+    """Prioritizes and filters metrics for optimal display"""
+    
+    # Define metric priorities and categories
+    METRIC_PRIORITIES = {
+        # Revenue metrics (highest priority)
+        'revenue': {'priority': 10, 'category': 'Revenue', 'variants': ['revenue', 'sales', 'income', 'receipts']},
+        'arr': {'priority': 9, 'category': 'Revenue', 'variants': ['arr', 'annual recurring revenue']},
+        'mrr': {'priority': 9, 'category': 'Revenue', 'variants': ['mrr', 'monthly recurring revenue']},
+        
+        # Profitability metrics
+        'profit': {'priority': 8, 'category': 'Profitability', 'variants': ['profit', 'net income', 'earnings']},
+        'ebitda': {'priority': 8, 'category': 'Profitability', 'variants': ['ebitda', 'operating income']},
+        'margin': {'priority': 7, 'category': 'Profitability', 'variants': ['margin', 'profit margin', 'gross margin']},
+        
+        # Growth metrics
+        'growth': {'priority': 7, 'category': 'Growth', 'variants': ['growth', 'growth rate', 'yoy', 'year over year']},
+        'cagr': {'priority': 6, 'category': 'Growth', 'variants': ['cagr', 'compound annual growth rate']},
+        
+        # Customer metrics
+        'customers': {'priority': 6, 'category': 'Customer', 'variants': ['customers', 'users', 'clients', 'accounts']},
+        'churn': {'priority': 5, 'category': 'Customer', 'variants': ['churn', 'churn rate', 'retention']},
+        'cac': {'priority': 5, 'category': 'Customer', 'variants': ['cac', 'customer acquisition cost']},
+        'ltv': {'priority': 5, 'category': 'Customer', 'variants': ['ltv', 'lifetime value', 'clv']},
+        
+        # Operational metrics
+        'expenses': {'priority': 4, 'category': 'Operations', 'variants': ['expenses', 'costs', 'operating expenses']},
+        'cash': {'priority': 4, 'category': 'Operations', 'variants': ['cash', 'cash flow', 'free cash flow']},
+        'runway': {'priority': 3, 'category': 'Operations', 'variants': ['runway', 'burn rate']}
+    }
+    
+    @classmethod
+    def prioritize_metrics(cls, metrics: Dict[str, Any], max_metrics: int = 6) -> Dict[str, Any]:
+        """
+        Filter and prioritize metrics for display
+        
+        Args:
+            metrics: Raw metrics dictionary
+            max_metrics: Maximum number of metrics to display
+            
+        Returns:
+            Prioritized metrics dictionary
+        """
+        if not metrics:
+            return {}
+        
+        # Score each metric
+        scored_metrics = []
+        
+        for metric_name, metric_data in metrics.items():
+            score = cls._calculate_metric_score(metric_name, metric_data)
+            scored_metrics.append((score, metric_name, metric_data))
+        
+        # Sort by score (descending)
+        scored_metrics.sort(key=lambda x: x[0], reverse=True)
+        
+        # Take top metrics and group by category
+        result = OrderedDict()
+        categories = OrderedDict()
+        
+        for score, metric_name, metric_data in scored_metrics[:max_metrics]:
+            category = cls._get_metric_category(metric_name)
+            if category not in categories:
+                categories[category] = []
+            categories[category].append((metric_name, metric_data))
+        
+        # Build result maintaining category order
+        for category in ['Revenue', 'Profitability', 'Growth', 'Customer', 'Operations']:
+            if category in categories:
+                for metric_name, metric_data in categories[category]:
+                    result[metric_name] = metric_data
+        
+        return result
+    
+    @classmethod
+    def _calculate_metric_score(cls, metric_name: str, metric_data: Any) -> float:
+        """Calculate priority score for a metric"""
+        base_score = 0
+        metric_lower = metric_name.lower()
+        
+        # Check against known metric types
+        for metric_type, info in cls.METRIC_PRIORITIES.items():
+            for variant in info['variants']:
+                if variant in metric_lower:
+                    base_score = info['priority']
+                    break
+            if base_score > 0:
+                break
+        
+        # Bonus for having actual numeric values
+        if isinstance(metric_data, dict) and 'value' in metric_data:
+            value = metric_data.get('value')
+            if value and str(value).strip() not in ['N/A', 'None', '']:
+                base_score += 1
+        
+        # Penalty for duplicate-looking metrics (e.g., revenue_sheet1, revenue_sheet2)
+        if any(sheet_indicator in metric_lower for sheet_indicator in ['sheet', '_q', '_jan', '_feb']):
+            base_score *= 0.5
+        
+        return base_score
+    
+    @classmethod
+    def _get_metric_category(cls, metric_name: str) -> str:
+        """Determine the category of a metric"""
+        metric_lower = metric_name.lower()
+        
+        for metric_type, info in cls.METRIC_PRIORITIES.items():
+            for variant in info['variants']:
+                if variant in metric_lower:
+                    return info['category']
+        
+        return 'Other'
+    
+    @classmethod
+    def format_metric_name(cls, metric_name: str) -> str:
+        """Format metric name for display (without emojis)"""
+        # Clean up the name
+        clean_name = metric_name.replace('_', ' ').strip()
+        
+        # Handle common abbreviations
+        replacements = {
+            'arr': 'ARR',
+            'mrr': 'MRR',
+            'cac': 'CAC',
+            'ltv': 'LTV',
+            'roi': 'ROI',
+            'ebitda': 'EBITDA',
+            'yoy': 'YoY',
+            'cagr': 'CAGR'
+        }
+        
+        words = clean_name.split()
+        formatted_words = []
+        
+        for word in words:
+            word_lower = word.lower()
+            if word_lower in replacements:
+                formatted_words.append(replacements[word_lower])
+            else:
+                formatted_words.append(word.capitalize())
+        
+        return ' '.join(formatted_words)
 
 class SmartLayoutEngine:
     """
@@ -75,8 +220,8 @@ class SmartLayoutEngine:
             'dashboard': {
                 'description': 'Dashboard layout for metrics and charts',
                 'max_items': 16,
-                'font_sizes': {'title': 32, 'subtitle': 20, 'body': 12, 'metric': 24},
-                'spacing': {'title_margin': 1.0, 'content_margin': 0.6}
+                'font_sizes': {'title': 28, 'subtitle': 18, 'body': 12, 'metric': 18, 'header': 14},
+                'spacing': {'title_margin': 1.0, 'content_margin': 0.8}
             },
             'dense_data': {
                 'description': 'Compact layout for data-heavy content',
@@ -217,7 +362,20 @@ class SmartLayoutEngine:
         Returns:
             Layout recommendation with specific parameters
         """
-        blocks = self.analyze_content_blocks(content_data)
+        # Filter metrics first if we have financial metrics
+        if 'financial_metrics' in content_data and isinstance(content_data['financial_metrics'], dict):
+            filtered_metrics = MetricsPrioritizer.prioritize_metrics(
+                content_data['financial_metrics'], 
+                max_metrics=6
+            )
+            # Create a copy of content_data with filtered metrics
+            filtered_content_data = content_data.copy()
+            filtered_content_data['financial_metrics'] = filtered_metrics
+        else:
+            filtered_content_data = content_data
+            filtered_metrics = None
+        
+        blocks = self.analyze_content_blocks(filtered_content_data)
         content_type = self.determine_content_type(blocks)
         complexity = self.calculate_layout_complexity(blocks)
         
@@ -229,11 +387,16 @@ class SmartLayoutEngine:
         print(f"DEBUG Layout Engine: Number of blocks = {len(blocks)}")
         for i, block in enumerate(blocks):
             print(f"  Block {i}: type={block.content_type}, data_points={block.data_points}")
+        if filtered_metrics:
+            print(f"DEBUG Layout Engine: Filtered from {len(content_data.get('financial_metrics', {}))} to {len(filtered_metrics)} metrics")
         
         # Customize based on content analysis
         recommendation = self._customize_layout(
             base_template, content_type, complexity, blocks
         )
+        
+        # Add filtered metrics to recommendation
+        recommendation.filtered_metrics = filtered_metrics
         
         # Add reasoning
         reasoning = self._generate_layout_reasoning(content_type, complexity, blocks)
@@ -332,9 +495,10 @@ class SmartLayoutEngine:
         
         print(f"DEBUG positions: content_type={content_type}, num_blocks={num_blocks}")
         if content_type == ContentType.DATA_HEAVY and num_blocks >= 1:  # Changed from >= 2 to >= 1
-            # Split content area for data + chart
-            positions['table'] = (0.5, content_top, 4.5, content_height)
-            positions['chart'] = (5.5, content_top, 4.0, content_height * 0.8)
+            # Split content area for data + chart with better proportions
+            # 40/60 split for table/chart with some padding
+            positions['table'] = (0.5, content_top, 3.8, content_height * 0.9)  # Narrower table
+            positions['chart'] = (4.5, content_top + 0.2, 5.0, content_height * 0.85)  # Wider chart with slight offset
         elif num_blocks >= 2:
             # Two-column layout
             positions['left_content'] = (0.5, content_top, 4.5, content_height)
