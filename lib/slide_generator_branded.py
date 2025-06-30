@@ -39,8 +39,9 @@ class BrandedSlideGenerator:
         # Get current brand configuration
         self.brand_config = self.brand_manager.get_current_brand_config()
         
-        # Initialize chart generator with brand config
-        self.chart_generator = ChartGenerator(self.brand_config)
+        # Initialize chart generator with adapted brand config
+        chart_config = self._adapt_brand_config_for_charts(self.brand_config)
+        self.chart_generator = ChartGenerator(chart_config)
         
         # Initialize presentation
         self._init_presentation()
@@ -870,8 +871,9 @@ class BrandedSlideGenerator:
         """Switch to a different brand template"""
         self.brand_manager.set_current_template(template_name)
         self.brand_config = self.brand_manager.get_current_brand_config()
-        # Reinitialize chart generator with new brand config
-        self.chart_generator = ChartGenerator(self.brand_config)
+        # Reinitialize chart generator with adapted brand config
+        chart_config = self._adapt_brand_config_for_charts(self.brand_config)
+        self.chart_generator = ChartGenerator(chart_config)
         # Reinitialize presentation with new template
         self._init_presentation()
     
@@ -1273,3 +1275,25 @@ class BrandedSlideGenerator:
             self.add_source_attribution(slide, source_refs)
         
         return slide
+    
+    def _adapt_brand_config_for_charts(self, brand_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Adapt brand config structure for ChartGenerator compatibility"""
+        adapted = brand_config.copy()
+        
+        # Handle fonts structure mismatch
+        fonts = brand_config.get('fonts', {})
+        if 'body' in fonts and isinstance(fonts['body'], dict):
+            # Extract size from nested structure
+            body_config = fonts['body']
+            adapted['fonts'] = {
+                'title_font': fonts.get('heading', {}).get('family', 'Arial'),
+                'body_font': body_config.get('family', 'Arial'),
+                'title_size': fonts.get('heading', {}).get('size_large', 16),
+                'body_size': body_config.get('size_medium', 12)
+            }
+        
+        # Handle colors structure - ChartGenerator expects 'colors' not 'theme_colors'
+        if 'theme_colors' in brand_config and 'colors' not in brand_config:
+            adapted['colors'] = brand_config['theme_colors']
+        
+        return adapted
