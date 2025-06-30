@@ -1299,3 +1299,52 @@ class BrandedSlideGenerator:
             adapted['colors'] = brand_config['theme_colors']
         
         return adapted
+    
+    def create_thank_you_slide(self) -> Any:
+        """Create a branded thank you/questions slide"""
+        layout = self._get_layout_for_content('thank_you')
+        slide = self.prs.slides.add_slide(layout)
+        
+        # Add background with brand colors
+        shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, self.prs.slide_width, self.prs.slide_height)
+        shape.fill.gradient()
+        shape.fill.gradient_angle = 90
+        
+        # Use brand colors for gradient
+        primary_color = self._get_brand_color('primary', '#4F81BD')
+        bg_color = self._get_brand_color('background', '#FFFFFF')
+        
+        # Convert to RGB for gradient
+        primary_rgb = self._hex_to_rgb(primary_color)
+        bg_rgb = self._hex_to_rgb(bg_color)
+        
+        # Create darker version of primary color for gradient start
+        shape.fill.gradient_stops[0].color.rgb = RGBColor(
+            max(0, int(primary_color[1:3], 16) - 40),
+            max(0, int(primary_color[3:5], 16) - 40), 
+            max(0, int(primary_color[5:7], 16) - 40)
+        )
+        shape.fill.gradient_stops[1].color.rgb = bg_rgb
+        shape.line.fill.background()
+        
+        # Add "Thank You" text with brand styling
+        thank_shape = slide.shapes.add_textbox(Inches(1), Inches(2.5), Inches(8), Inches(1.5))
+        thank_frame = thank_shape.text_frame
+        thank_frame.text = "Thank You"
+        
+        p = thank_frame.paragraphs[0]
+        self._apply_font_style(p, 'heading', size='extra_large')
+        p.alignment = PP_ALIGN.CENTER
+        p.font.color.rgb = self._hex_to_rgb(self._get_brand_color('primary', '#37407D'))
+        
+        # Add "Questions?" text
+        questions_shape = slide.shapes.add_textbox(Inches(1), Inches(4.5), Inches(8), Inches(1))
+        questions_frame = questions_shape.text_frame
+        questions_frame.text = "Questions?"
+        
+        p = questions_frame.paragraphs[0]
+        self._apply_font_style(p, 'heading', size='large')
+        p.alignment = PP_ALIGN.CENTER
+        p.font.color.rgb = self._hex_to_rgb(self._get_brand_color('accent1', '#4F81BD'))
+        
+        return slide
