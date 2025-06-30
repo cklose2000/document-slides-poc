@@ -229,7 +229,7 @@ class BrandedSlideGenerator:
                 run.text = formatted_value
                 try:
                     run.hyperlink.address = hyperlink_url
-                    run.font.color.rgb = self._get_brand_color('accent1', '#0066CC')
+                    run.font.color.rgb = self._hex_to_rgb(self._get_brand_color('accent1', '#0066CC'))
                     run.font.underline = True
                 except:
                     pass
@@ -272,7 +272,7 @@ class BrandedSlideGenerator:
                 try:
                     hyperlink_url = self.source_tracker.get_source_hyperlink(data_point_id, formatted_source)
                     run.hyperlink.address = hyperlink_url
-                    run.font.color.rgb = self._get_brand_color('secondary', '#666666')
+                    run.font.color.rgb = self._hex_to_rgb(self._get_brand_color('secondary', '#666666'))
                     run.font.italic = True
                 except:
                     pass
@@ -554,7 +554,7 @@ class BrandedSlideGenerator:
             run.text = "    View Source Details >"
             run.font.size = Pt(9)
             run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
-            run.font.color.rgb = self._get_brand_color('accent1', '#0066CC')
+            run.font.color.rgb = self._hex_to_rgb(self._get_brand_color('accent1', '#0066CC'))
             run.font.underline = True
             
             # Add citation footnotes if available
@@ -904,7 +904,7 @@ class BrandedSlideGenerator:
             # Style the hyperlink
             run.font.size = Pt(12)
             run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
-            run.font.color.rgb = self._get_brand_color('accent1', '#0066CC')  # Blue for links
+            run.font.color.rgb = self._hex_to_rgb(self._get_brand_color('accent1', '#0066CC'))  # Blue for links
             run.font.underline = True
             
         except Exception:
@@ -941,7 +941,7 @@ class BrandedSlideGenerator:
             # Style the source link
             run.font.size = Pt(10)
             run.font.name = self.brand_config.get('fonts', {}).get('body', {}).get('family', 'Calibri')
-            run.font.color.rgb = self._get_brand_color('secondary', '#666666')
+            run.font.color.rgb = self._hex_to_rgb(self._get_brand_color('secondary', '#666666'))
             run.font.italic = True
             
         except Exception:
@@ -992,7 +992,7 @@ class BrandedSlideGenerator:
         if confidence is not None:
             citation_run.font.color.rgb = self._get_confidence_color(confidence)
         else:
-            citation_run.font.color.rgb = self._get_brand_color('secondary', '#666666')
+            citation_run.font.color.rgb = self._hex_to_rgb(self._get_brand_color('secondary', '#666666'))
     
     def _format_source_with_confidence(self, source_text: str, confidence: float) -> Tuple[str, str]:
         """Format source text with confidence indicator"""
