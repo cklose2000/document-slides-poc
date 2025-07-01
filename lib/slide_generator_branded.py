@@ -17,7 +17,7 @@ try:
     from .chart_generator import ChartGenerator
     from .visual_effects import VisualEffectsEngine
     from .simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
-    from .rich_slide_layouts import RichSlideLayouts
+    from .rich_slide_layouts_safe import RichSlideLayouts
     from .slide_components import TextComponents, DataComponents, VisualComponents, LayoutComponents, CompositeComponents
     from .layout_engine import SmartLayoutEngine
 except ImportError:
@@ -26,7 +26,7 @@ except ImportError:
     from chart_generator import ChartGenerator
     from visual_effects import VisualEffectsEngine
     from simple_visual_effects import SimpleVisualEffects, enhance_slide_simply
-    from rich_slide_layouts import RichSlideLayouts
+    from rich_slide_layouts_safe import RichSlideLayouts
     from slide_components import TextComponents, DataComponents, VisualComponents, LayoutComponents, CompositeComponents
     from layout_engine import SmartLayoutEngine
 import os
@@ -73,8 +73,13 @@ class BrandedSlideGenerator:
         if current_template and os.path.exists(current_template.template_path):
             # Start with template presentation
             self.prs = Presentation(current_template.template_path)
-            # Note: We'll keep existing slides in template for now to avoid clearing issues
-            # In production, we'd implement proper slide clearing
+            
+            # IMPORTANT: Remove any pre-existing slides from template to prevent corruption
+            # Templates should only provide layouts, not content slides
+            while len(self.prs.slides) > 0:
+                rId = self.prs.slides._sldIdLst[0].rId
+                self.prs.part.drop_rel(rId)
+                del self.prs.slides._sldIdLst[0]
         else:
             # Create blank presentation
             self.prs = Presentation()

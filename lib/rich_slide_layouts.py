@@ -20,6 +20,12 @@ from pptx.enum.chart import XL_CHART_TYPE
 from typing import Dict, List, Any, Optional, Tuple
 import random
 
+# Import safe components to prevent corruption
+try:
+    from .slide_components import TextComponents, DataComponents, VisualComponents, CompositeComponents
+except ImportError:
+    from slide_components import TextComponents, DataComponents, VisualComponents, CompositeComponents
+
 class RichSlideLayouts:
     """Create rich, substantial slide layouts"""
     
@@ -50,119 +56,41 @@ class RichSlideLayouts:
     
     def create_executive_dashboard_slide(self, slide: Any, metrics: Dict[str, Any], 
                                        title: str = "Executive Dashboard") -> Any:
-        """Create an executive dashboard with KPI cards"""
+        """Create an executive dashboard with KPI cards using safe components"""
         
-        # Add title
-        title_shape = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(9), Inches(0.8))
-        title_frame = title_shape.text_frame
-        title_frame.text = title
-        title_para = title_frame.paragraphs[0]
-        title_para.font.size = Pt(28)
-        title_para.font.bold = True
-        title_para.font.color.rgb = RGBColor(30, 60, 114)
+        # Use safe text component for title
+        text_comp = TextComponents(slide)
+        text_comp.add_title(title, 0.5, 0.2, 9.0, 0.8, font_size=28)
         
-        # Create KPI cards grid (2x3 layout)
-        card_width = Inches(2.8)
-        card_height = Inches(2.2)
-        spacing = Inches(0.3)
-        start_x = Inches(0.5)
-        start_y = Inches(1.2)
+        # Use safe composite component for KPI dashboard
+        composite_comp = CompositeComponents(slide)
         
         # Define KPI metrics with icons and colors
         kpis = [
-            {'label': 'Total Revenue', 'value': '$12.5M', 'change': '+15%', 'color': 'success'},
-            {'label': 'Gross Margin', 'value': '42.3%', 'change': '+2.1%', 'color': 'success'},
-            {'label': 'Operating Costs', 'value': '$4.2M', 'change': '-5%', 'color': 'success'},
-            {'label': 'Net Profit', 'value': '$3.8M', 'change': '+22%', 'color': 'success'},
-            {'label': 'Cash Flow', 'value': '$2.1M', 'change': '+8%', 'color': 'warning'},
-            {'label': 'ROI', 'value': '18.5%', 'change': '+3.2%', 'color': 'success'}
+            {'title': 'Total Revenue', 'value': 12500000, 'change': 15.0},
+            {'title': 'Gross Margin', 'value': 42.3, 'change': 2.1},
+            {'title': 'Operating Costs', 'value': 4200000, 'change': -5.0},
+            {'title': 'Net Profit', 'value': 3800000, 'change': 22.0},
+            {'title': 'Cash Flow', 'value': 2100000, 'change': 8.0},
+            {'title': 'ROI', 'value': 18.5, 'change': 3.2}
         ]
         
         # Override with actual metrics if provided
         if metrics:
-            # Update KPIs with real data
-            pass
+            # Update KPIs with real data from metrics
+            kpi_index = 0
+            for metric_name, metric_data in list(metrics.items())[:6]:
+                if kpi_index < len(kpis):
+                    kpis[kpi_index]['title'] = metric_name
+                    if isinstance(metric_data, dict):
+                        kpis[kpi_index]['value'] = metric_data.get('value', 0)
+                        kpis[kpi_index]['change'] = metric_data.get('change', 0)
+                    else:
+                        kpis[kpi_index]['value'] = metric_data
+                    kpi_index += 1
         
-        for i, kpi in enumerate(kpis):
-            row = i // 3
-            col = i % 3
-            
-            x = start_x + (card_width + spacing) * col
-            y = start_y + (card_height + spacing) * row
-            
-            # Create card background
-            card = slide.shapes.add_shape(
-                MSO_SHAPE.ROUNDED_RECTANGLE,
-                x, y, card_width, card_height
-            )
-            
-            # Style the card
-            card.fill.solid()
-            card.fill.fore_color.rgb = RGBColor(255, 255, 255)
-            card.line.color.rgb = RGBColor(230, 230, 230)
-            card.line.width = Pt(1)
-            
-            # Add KPI label
-            label_box = slide.shapes.add_textbox(
-                x + Inches(0.2), y + Inches(0.2), 
-                card_width - Inches(0.4), Inches(0.4)
-            )
-            label_frame = label_box.text_frame
-            label_frame.text = kpi['label']
-            label_para = label_frame.paragraphs[0]
-            label_para.font.size = Pt(14)
-            label_para.font.color.rgb = RGBColor(100, 100, 100)
-            
-            # Add main value
-            value_box = slide.shapes.add_textbox(
-                x + Inches(0.2), y + Inches(0.6),
-                card_width - Inches(0.4), Inches(0.8)
-            )
-            value_frame = value_box.text_frame
-            value_frame.text = kpi['value']
-            value_para = value_frame.paragraphs[0]
-            value_para.font.size = Pt(32)
-            value_para.font.bold = True
-            value_para.font.color.rgb = RGBColor(30, 60, 114)
-            
-            # Add change indicator
-            change_box = slide.shapes.add_textbox(
-                x + Inches(0.2), y + Inches(1.5),
-                card_width - Inches(0.4), Inches(0.4)
-            )
-            change_frame = change_box.text_frame
-            change_frame.text = kpi['change']
-            change_para = change_frame.paragraphs[0]
-            change_para.font.size = Pt(16)
-            change_para.font.bold = True
-            
-            # Color based on positive/negative
-            if kpi['color'] == 'success':
-                change_para.font.color.rgb = RGBColor(39, 174, 96)
-            elif kpi['color'] == 'warning':
-                change_para.font.color.rgb = RGBColor(243, 156, 18)
-            else:
-                change_para.font.color.rgb = RGBColor(231, 76, 60)
-            
-            # Add trend indicator shape
-            if '+' in kpi['change']:
-                arrow = slide.shapes.add_shape(
-                    MSO_SHAPE.ISOSCELES_TRIANGLE,
-                    x + card_width - Inches(0.6), y + Inches(1.5),
-                    Inches(0.3), Inches(0.3)
-                )
-                arrow.fill.solid()
-                arrow.fill.fore_color.rgb = RGBColor(39, 174, 96)
-                arrow.rotation = 0
-            elif '-' in kpi['change']:
-                arrow = slide.shapes.add_shape(
-                    MSO_SHAPE.ISOSCELES_TRIANGLE,
-                    x + card_width - Inches(0.6), y + Inches(1.5),
-                    Inches(0.3), Inches(0.3)
-                )
-                arrow.fill.solid()
-                arrow.fill.fore_color.rgb = RGBColor(231, 76, 60)
-                arrow.rotation = 180
+        # Add KPI dashboard using safe components
+        composite_comp.add_kpi_dashboard(kpis, left=0.5, top=1.2, arrangement='horizontal')
         
         return slide
     

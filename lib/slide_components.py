@@ -21,6 +21,30 @@ class SlideComponentBase:
     def __init__(self, slide: Slide):
         self.slide = slide
         self.shapes = slide.shapes
+    
+    def _validate_coordinates(self, left: float, top: float, width: float, height: float) -> Tuple[float, float, float, float]:
+        """Validate and clamp coordinates to prevent PowerPoint corruption."""
+        # PowerPoint slide dimensions (standard 16:9)
+        max_width = 10.0  # inches
+        max_height = 7.5  # inches
+        min_size = 0.01   # minimum dimension
+        
+        # Clamp coordinates to slide boundaries
+        left = max(0, min(left, max_width - min_size))
+        top = max(0, min(top, max_height - min_size))
+        width = max(min_size, min(width, max_width - left))
+        height = max(min_size, min(height, max_height - top))
+        
+        return left, top, width, height
+    
+    def _safe_set_font_size(self, paragraph, size_pt: int):
+        """Safely set font size with validation."""
+        try:
+            # PowerPoint supports 1-4000 pt
+            safe_size = max(1, min(4000, size_pt))
+            paragraph.font.size = Pt(safe_size)
+        except (AttributeError, ValueError):
+            paragraph.font.size = Pt(12)  # Fallback
         
     def _get_brand_colors(self) -> Dict[str, RGBColor]:
         """Get standard brand colors for consistency."""
@@ -65,6 +89,9 @@ class TextComponents(SlideComponentBase):
     def add_title(self, text: str, left: float, top: float, width: float, height: float,
                   font_size: int = 28, bold: bool = True) -> BaseShape:
         """Add a title text box."""
+        # Validate coordinates
+        left, top, width, height = self._validate_coordinates(left, top, width, height)
+        
         text_box = self.shapes.add_textbox(Inches(left), Inches(top), 
                                            Inches(width), Inches(height))
         text_frame = text_box.text_frame
@@ -72,7 +99,7 @@ class TextComponents(SlideComponentBase):
         
         p = text_frame.add_paragraph()
         p.text = text
-        p.font.size = Pt(font_size)
+        self._safe_set_font_size(p, font_size)
         p.font.bold = bold
         p.font.color.rgb = self._get_brand_colors()['dark']
         p.alignment = PP_ALIGN.LEFT
@@ -86,6 +113,9 @@ class TextComponents(SlideComponentBase):
     def add_body_text(self, text: str, left: float, top: float, width: float, height: float,
                       font_size: int = 12, line_spacing: float = 1.2) -> BaseShape:
         """Add body text with proper formatting."""
+        # Validate coordinates
+        left, top, width, height = self._validate_coordinates(left, top, width, height)
+        
         text_box = self.shapes.add_textbox(Inches(left), Inches(top), 
                                            Inches(width), Inches(height))
         text_frame = text_box.text_frame
@@ -93,7 +123,7 @@ class TextComponents(SlideComponentBase):
         
         p = text_frame.add_paragraph()
         p.text = text
-        p.font.size = Pt(font_size)
+        self._safe_set_font_size(p, font_size)
         p.font.color.rgb = self._get_brand_colors()['dark']
         p.line_spacing = line_spacing
         
@@ -105,6 +135,9 @@ class TextComponents(SlideComponentBase):
                          width: float, height: float, font_size: int = 11,
                          bullet_char: str = "•") -> BaseShape:
         """Add formatted bullet points."""
+        # Validate coordinates
+        left, top, width, height = self._validate_coordinates(left, top, width, height)
+        
         text_box = self.shapes.add_textbox(Inches(left), Inches(top), 
                                            Inches(width), Inches(height))
         text_frame = text_box.text_frame
@@ -113,7 +146,7 @@ class TextComponents(SlideComponentBase):
         for i, item in enumerate(items):
             p = text_frame.add_paragraph() if i > 0 else text_frame.paragraphs[0]
             p.text = f"{bullet_char} {item}"
-            p.font.size = Pt(font_size)
+            self._safe_set_font_size(p, font_size)
             p.font.color.rgb = self._get_brand_colors()['dark']
             p.level = 0
             p.line_spacing = 1.2
@@ -130,6 +163,9 @@ class DataComponents(SlideComponentBase):
                      left: float, top: float, width: float = 2.0, height: float = 1.5,
                      data_point_id: Optional[str] = None) -> BaseShape:
         """Add a KPI card with value and change indicator."""
+        # Validate coordinates
+        left, top, width, height = self._validate_coordinates(left, top, width, height)
+        
         # Card background
         card = self.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, 
                                      Inches(left), Inches(top), 
@@ -141,11 +177,15 @@ class DataComponents(SlideComponentBase):
         card.line.color.rgb = self._get_brand_colors()['light']
         card.line.width = Pt(1)
         
-        # Add shadow effect
-        card.shadow.visible = True
-        card.shadow.distance = Pt(2)
-        card.shadow.blur_radius = Pt(4)
-        card.shadow.transparency = 0.8
+        # Add shadow effect (with safety checks)
+        try:
+            card.shadow.visible = True
+            card.shadow.distance = Pt(2)
+            card.shadow.blur_radius = Pt(4)
+            card.shadow.transparency = max(0.0, min(1.0, 0.8))  # Clamp to valid range
+        except (AttributeError, ValueError):
+            # Skip shadow if not supported
+            pass
         
         # Title
         title_box = self.shapes.add_textbox(Inches(left + 0.1), Inches(top + 0.1),
@@ -154,7 +194,7 @@ class DataComponents(SlideComponentBase):
         title_frame.clear()
         p = title_frame.add_paragraph()
         p.text = title.upper()
-        p.font.size = Pt(10)
+        self._safe_set_font_size(p, 10)
         p.font.color.rgb = self._get_brand_colors()['neutral']
         p.font.bold = True
         
@@ -166,7 +206,7 @@ class DataComponents(SlideComponentBase):
         value_frame.clear()
         p = value_frame.add_paragraph()
         p.text = value_text
-        p.font.size = Pt(24)
+        self._safe_set_font_size(p, 24)
         p.font.color.rgb = self._get_brand_colors()['primary']
         p.font.bold = True
         
@@ -181,7 +221,7 @@ class DataComponents(SlideComponentBase):
             change_frame.clear()
             p = change_frame.add_paragraph()
             p.text = f"{arrow} {self._format_percentage(change)}"
-            p.font.size = Pt(12)
+            self._safe_set_font_size(p, 12)
             p.font.color.rgb = change_color
             p.font.bold = True
         
@@ -194,15 +234,23 @@ class DataComponents(SlideComponentBase):
     def add_metric_table(self, data: List[Dict[str, Any]], left: float, top: float,
                         width: float, height: float, show_variance: bool = True) -> BaseShape:
         """Add a formatted metric comparison table."""
-        rows = len(data) + 1  # +1 for header
+        # Validate coordinates
+        left, top, width, height = self._validate_coordinates(left, top, width, height)
+        
+        rows = len(data) + 1 if data else 2  # +1 for header, minimum 2 rows
         cols = len(data[0].keys()) if data else 3
+        
+        # Ensure minimum table dimensions
+        rows = max(2, rows)
+        cols = max(2, cols)
         
         table = self.shapes.add_table(rows, cols, Inches(left), Inches(top),
                                       Inches(width), Inches(height)).table
         
-        # Style the table
+        # Style the table (with safe height calculation)
+        safe_row_height = max(0.2, height / rows)  # Minimum 0.2 inches per row
         for row in table.rows:
-            row.height = Inches(height / rows)
+            row.height = Inches(safe_row_height)
         
         # Add headers
         if data:
@@ -211,7 +259,7 @@ class DataComponents(SlideComponentBase):
                 cell = table.cell(0, col_idx)
                 cell.text = header
                 cell.text_frame.paragraphs[0].font.bold = True
-                cell.text_frame.paragraphs[0].font.size = Pt(10)
+                self._safe_set_font_size(cell.text_frame.paragraphs[0], 10)
                 cell.fill.solid()
                 cell.fill.fore_color.rgb = self._get_brand_colors()['primary']
                 cell.text_frame.paragraphs[0].font.color.rgb = RGBColor(255, 255, 255)
@@ -233,7 +281,7 @@ class DataComponents(SlideComponentBase):
                 else:
                     cell.text = str(value)
                 
-                cell.text_frame.paragraphs[0].font.size = Pt(9)
+                self._safe_set_font_size(cell.text_frame.paragraphs[0], 9)
                 
                 # Alternate row coloring
                 if row_idx % 2 == 1:
@@ -246,6 +294,9 @@ class DataComponents(SlideComponentBase):
                               width: float = 3.0, height: float = 0.3,
                               label: Optional[str] = None) -> BaseShape:
         """Add a progress bar indicator."""
+        # Validate coordinates
+        left, top, width, height = self._validate_coordinates(left, top, width, height)
+        
         # Background bar
         bg_bar = self.shapes.add_shape(MSO_SHAPE.RECTANGLE,
                                        Inches(left), Inches(top),
@@ -254,9 +305,11 @@ class DataComponents(SlideComponentBase):
         bg_bar.fill.fore_color.rgb = self._get_brand_colors()['light']
         bg_bar.line.fill.background()
         
-        # Progress bar
-        progress_width = width * (progress / 100)
-        if progress_width > 0:
+        # Progress bar (with minimum width validation)
+        progress_percent = max(0, min(100, progress))  # Clamp progress to 0-100
+        progress_width = width * (progress_percent / 100)
+        min_width = 0.05  # Minimum meaningful width
+        if progress_width >= min_width:
             progress_bar = self.shapes.add_shape(MSO_SHAPE.RECTANGLE,
                                                 Inches(left), Inches(top),
                                                 Inches(progress_width), Inches(height))
@@ -281,8 +334,8 @@ class DataComponents(SlideComponentBase):
             label_frame = label_box.text_frame
             label_frame.clear()
             p = label_frame.add_paragraph()
-            p.text = f"{label}: {progress:.0f}%"
-            p.font.size = Pt(10)
+            p.text = f"{label}: {progress_percent:.0f}%"
+            self._safe_set_font_size(p, 10)
             p.font.color.rgb = self._get_brand_colors()['dark']
             label_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
         
@@ -507,6 +560,8 @@ class CompositeComponents(SlideComponentBase):
     def add_timeline_visualization(self, events: List[Dict[str, Any]], 
                                   left: float, top: float, width: float, height: float) -> List[BaseShape]:
         """Add a timeline visualization with milestones."""
+        # Validate coordinates
+        left, top, width, height = self._validate_coordinates(left, top, width, height)
         shapes = []
         
         # Timeline line
@@ -523,9 +578,11 @@ class CompositeComponents(SlideComponentBase):
             for i, event in enumerate(events):
                 event_x = left + (i + 1) * spacing
                 
-                # Milestone circle
+                # Milestone circle (with coordinate validation)
+                circle_left = max(left, min(event_x - 0.15, left + width - 0.3))
+                circle_top = max(top, min(timeline_y - 0.15, top + height - 0.3))
                 circle = self.shapes.add_shape(MSO_SHAPE.OVAL,
-                                              Inches(event_x - 0.15), Inches(timeline_y - 0.15),
+                                              Inches(circle_left), Inches(circle_top),
                                               Inches(0.3), Inches(0.3))
                 circle.fill.solid()
                 circle.fill.fore_color.rgb = self._get_brand_colors()['accent']
@@ -533,11 +590,13 @@ class CompositeComponents(SlideComponentBase):
                 circle.line.width = Pt(2)
                 shapes.append(circle)
                 
-                # Event text (alternating above/below)
+                # Event text (alternating above/below with validation)
                 text_y = timeline_y - 0.8 if i % 2 == 0 else timeline_y + 0.4
+                text_left = max(left, min(event_x - 0.5, left + width - 1.0))
+                text_top = max(top, min(text_y, top + height - 0.5))
                 text_box = self.text.add_body_text(
                     f"{event.get('date', '')}\n{event.get('title', '')}",
-                    event_x - 0.5, text_y, 1.0, 0.5, font_size=9
+                    text_left, text_top, 1.0, 0.5, font_size=9
                 )
                 shapes.append(text_box)
         
@@ -546,6 +605,8 @@ class CompositeComponents(SlideComponentBase):
     def add_risk_matrix(self, risks: List[Dict[str, Any]], 
                        left: float, top: float, size: float = 4.0) -> List[BaseShape]:
         """Add a risk assessment matrix (impact vs probability)."""
+        # Validate coordinates
+        left, top, size, _ = self._validate_coordinates(left, top, size, size)
         shapes = []
         
         # Matrix background
@@ -588,13 +649,18 @@ class CompositeComponents(SlideComponentBase):
             impact = risk.get('impact', 1)  # 1-3
             probability = risk.get('probability', 1)  # 1-3
             
-            # Calculate position
+            # Calculate position with validation
+            impact = max(1, min(3, impact))  # Clamp to 1-3
+            probability = max(1, min(3, probability))  # Clamp to 1-3
+            
             risk_x = left + (probability - 0.5) * size/3
             risk_y = top + size - (impact - 0.5) * size/3
             
-            # Risk bubble
+            # Risk bubble (with coordinate validation)
+            bubble_left = max(left, min(risk_x - 0.2, left + size - 0.4))
+            bubble_top = max(top, min(risk_y - 0.2, top + size - 0.4))
             bubble = self.shapes.add_shape(MSO_SHAPE.OVAL,
-                                          Inches(risk_x - 0.2), Inches(risk_y - 0.2),
+                                          Inches(bubble_left), Inches(bubble_top),
                                           Inches(0.4), Inches(0.4))
             
             # Color based on risk level
@@ -611,9 +677,11 @@ class CompositeComponents(SlideComponentBase):
             bubble.line.fill.background()
             shapes.append(bubble)
             
-            # Risk label
+            # Risk label (with coordinate validation)
+            label_left = max(left, min(risk_x - 0.3, left + size - 0.6))
+            label_top = max(top, min(risk_y + 0.25, top + size - 0.3))
             label = self.text.add_body_text(risk.get('name', 'Risk')[:10],
-                                           risk_x - 0.3, risk_y + 0.25,
+                                           label_left, label_top,
                                            0.6, 0.3, font_size=8)
             shapes.append(label)
         
